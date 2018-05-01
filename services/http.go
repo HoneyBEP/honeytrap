@@ -162,6 +162,18 @@ func (s *httpService) Handle(ctx context.Context, conn net.Conn) error {
 
 		io.Copy(ioutil.Discard, req.Body)
 
+		file := "lua/assets/wp-home-4-9-5.html"
+		switch req.URL.String() {
+		case "/wp-login.php":
+			file = "lua/assets/wp-login-4-9-5.html"
+		}
+
+		wordpressBytes, err := ioutil.ReadFile(file)
+		if err != nil {
+			return err
+		}
+
+		bodyResp := string(wordpressBytes)
 		s.c.Send(event.New(
 			EventOptions,
 			event.Category("http"),
@@ -172,6 +184,7 @@ func (s *httpService) Handle(ctx context.Context, conn net.Conn) error {
 			event.Custom("http.proto", req.Proto),
 			event.Custom("http.host", req.Host),
 			event.Custom("http.url", req.URL.String()),
+			// event.Custom("http.response", bodyResp),
 			event.Payload(body),
 			Headers(req.Header),
 			Cookies(req.Cookies()),
@@ -195,8 +208,4 @@ func (s *httpService) Handle(ctx context.Context, conn net.Conn) error {
 			return err
 		}
 	}
-}
-
-func getRequestURL(r http.Request) string {
-	return r.URL.String()
 }
