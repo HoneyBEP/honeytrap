@@ -154,21 +154,10 @@ func (s *httpService) Handle(ctx context.Context, conn net.Conn) error {
 			return err
 		}
 
-		s.scr.RegisterFunc("getRequestURL", func() string {
-			return req.URL.String()
-		})
-
-		s.scr.RegisterFunc("getRequestMethod", func() string {
-			return req.Method
-		})
-
-		s.scr.RegisterFunc("getRemoteAddr", func() string {
-			return conn.RemoteAddr().String()
-		})
-
-		s.scr.RegisterFunc("getLocalAddr", func() string {
-			return conn.LocalAddr().String()
-		})
+		s.scr.SetVariable("RequestURL", req.URL.String())
+		s.scr.SetVariable("RequestMethod", req.Method)
+		s.scr.SetVariable("RemoteAddr", conn.RemoteAddr().String())
+		s.scr.SetVariable("LocalAddr", conn.LocalAddr().String())
 
 		body = body[:n]
 

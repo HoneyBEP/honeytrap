@@ -13,6 +13,6 @@ type dummyScripter struct {
 
 }
 
-func (*dummyScripter) RegisterFunc(string, func() string) error {
+func (*dummyScripter) SetVariable(string, string) error {
 	return nil
 }

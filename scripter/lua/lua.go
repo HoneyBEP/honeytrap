@@ -75,11 +75,8 @@ func (l *luaScripter) Handle(service string, message string) (string, error) {
 	return result, nil
 }
 
-func (L *luaScripter) RegisterFunc(name string, f func() string) error {
-	L.Register(name, func(state *lua.LState) int {
-		f()
-		return 1
-	})
+func (L *luaScripter) SetVariable(name string, value string) error {
+	L.SetGlobal(name, lua.LString(value))
 
 	return nil
 }
