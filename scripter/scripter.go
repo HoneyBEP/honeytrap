@@ -32,6 +32,7 @@ func GetAvailableScripterNames() []string {
 type Scripter interface {
 	InitScripts(service string)
 	Handle(service string, message string) (string, error)
+	RegisterFunc(string, func() string) error
 }
 
 

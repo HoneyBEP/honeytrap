@@ -153,9 +153,22 @@ func (s *httpService) Handle(ctx context.Context, conn net.Conn) error {
 		} else if err != nil {
 			return err
 		}
-		//
-		////conn, req, body :=
-		//s.scr.PreFilter("http", httpScripter {conn, req, n })
+
+		s.scr.RegisterFunc("getRequestURL", func() string {
+			return req.URL.String()
+		})
+
+		s.scr.RegisterFunc("getRequestMethod", func() string {
+			return req.Method
+		})
+
+		s.scr.RegisterFunc("getRemoteAddr", func() string {
+			return conn.RemoteAddr().String()
+		})
+
+		s.scr.RegisterFunc("getLocalAddr", func() string {
+			return conn.LocalAddr().String()
+		})
 
 		body = body[:n]
 

@@ -75,6 +75,15 @@ func (l *luaScripter) Handle(service string, message string) (string, error) {
 	return result, nil
 }
 
+func (L *luaScripter) RegisterFunc(name string, f func() string) error {
+	L.Register(name, func(state *lua.LState) int {
+		f()
+		return 1
+	})
+
+	return nil
+}
+
 // Closes the scripter state
 func (l *luaScripter) Close() {
 	l.Close()
