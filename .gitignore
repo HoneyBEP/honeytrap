@@ -1,8 +1,8 @@
 # Project files
-./idea
+.idea/
 
 # Log files
-.log
+*.log
 
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
 *.o
