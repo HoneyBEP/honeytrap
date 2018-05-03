@@ -154,10 +154,10 @@ func (s *httpService) Handle(ctx context.Context, conn net.Conn) error {
 			return err
 		}
 
-		s.scr.SetVariable("RequestURL", req.URL.String())
-		s.scr.SetVariable("RequestMethod", req.Method)
-		s.scr.SetVariable("RemoteAddr", conn.RemoteAddr().String())
-		s.scr.SetVariable("LocalAddr", conn.LocalAddr().String())
+		s.scr.SetVariable("http", "RequestURL", req.URL.String())
+		s.scr.SetVariable("http", "RequestMethod", req.Method)
+		s.scr.SetVariable("http", "RemoteAddr", conn.RemoteAddr().String())
+		s.scr.SetVariable("http", "LocalAddr", conn.LocalAddr().String())
 
 		body = body[:n]
 
@@ -165,18 +165,6 @@ func (s *httpService) Handle(ctx context.Context, conn net.Conn) error {
 
 		io.Copy(ioutil.Discard, req.Body)
 
-		file := "lua/assets/wp-home-4-9-5.html"
-		switch req.URL.String() {
-		case "/wp-login.php":
-			file = "lua/assets/wp-login-4-9-5.html"
-		}
-
-		wordpressBytes, err := ioutil.ReadFile(file)
-		if err != nil {
-			return err
-		}
-
-		bodyResp := string(wordpressBytes)
 		s.c.Send(event.New(
 			EventOptions,
 			event.Category("http"),
