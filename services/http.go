@@ -134,7 +134,6 @@ func Cookies(cookies []*http.Cookie) event.Option {
 
 func (s *httpService) Handle(ctx context.Context, conn net.Conn) error {
 	for {
-
 		br := bufio.NewReader(conn)
 
 		req, err := http.ReadRequest(br)
