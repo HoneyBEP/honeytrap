@@ -96,6 +96,28 @@ func (l *luaScripter) SetVariable(service string, name string, value string) err
 	return nil
 }
 
+func (l *luaScripter) SetStringFunction(service string, name string, getString func() string) error {
+	ls, err := l.loadScript(service)
+	if err != nil {
+		return err
+	}
+
+	ls.Register(name, func(state *lua.LState) int {
+		state.Push(lua.LString(getString()))
+		return 1
+	})
+
+	return nil
+}
+
+func (l *luaScripter) loadScript(service string) (*lua.LState, error) {
+	lState, ok := l.scripts.Load(service)
+	if !ok {
+		return nil, fmt.Errorf("could not retrieve lua state for service %s", service)
+	}
+	return lState.(*lua.LState), nil
+}
+
 // Closes the scripter state
 func (l *luaScripter) Close() {
 	l.Close()
