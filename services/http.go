@@ -158,6 +158,8 @@ func (s *httpService) Handle(ctx context.Context, conn net.Conn) error {
 		s.scr.SetVariable("http", "RemoteAddr", conn.RemoteAddr().String())
 		s.scr.SetVariable("http", "LocalAddr", conn.LocalAddr().String())
 
+		s.scr.SetStringFunction("http", "getRemoteAddr", func() string { return conn.RemoteAddr().String() })
+
 		body = body[:n]
 
 		responseString, err := s.scr.Handle("http", string(body))
