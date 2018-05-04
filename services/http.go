@@ -44,6 +44,7 @@ import (
 	"github.com/honeytrap/honeytrap/event"
 	"github.com/honeytrap/honeytrap/pushers"
 	"github.com/honeytrap/honeytrap/scripter"
+	"time"
 )
 
 var (
@@ -159,6 +160,12 @@ func (s *httpService) Handle(ctx context.Context, conn net.Conn) error {
 		s.scr.SetVariable("http", "LocalAddr", conn.LocalAddr().String())
 
 		s.scr.SetStringFunction("http", "getRemoteAddr", func() string { return conn.RemoteAddr().String() })
+		s.scr.SetStringFunction("http", "getDatetime", func() string {
+			t := time.Now();
+			return fmt.Sprintf("%d-%02d-%02dT%02d:%02d:%02d-00:00\n",
+				t.Year(), t.Month(), t.Day(),
+				t.Hour(), t.Minute(), t.Second())
+		})
 
 		body = body[:n]
 
