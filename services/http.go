@@ -169,6 +169,8 @@ func (s *httpService) Handle(ctx context.Context, conn net.Conn) error {
 				t.Hour(), t.Minute(), t.Second())
 		})
 
+		s.scr.SetStringFunction( "getRemoteAddr", func() string { return conn.RemoteAddr().String() })
+
 		body = body[:n]
 
 		responseString, err := scr.Handle(string(body))
