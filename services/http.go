@@ -63,7 +63,7 @@ func HTTP(options ...ServicerFunc) Servicer {
 		o(s)
 	}
 
-	s.scr.InitScripts("http")
+	s.scr.InitScripts()
 
 	return s
 }
@@ -154,14 +154,13 @@ func (s *httpService) Handle(ctx context.Context, conn net.Conn) error {
 			return err
 		}
 
-		s.scr.SetVariable("http", "RequestURL", req.URL.String())
-		s.scr.SetVariable("http", "RequestMethod", req.Method)
-		s.scr.SetVariable("http", "RemoteAddr", conn.RemoteAddr().String())
-		s.scr.SetVariable("http", "LocalAddr", conn.LocalAddr().String())
+		s.scr.SetVariable("RequestURL", req.URL.String())
+		s.scr.SetVariable("RequestMethod", req.Method)
 
-		s.scr.SetStringFunction("http", "getRemoteAddr", func() string { return conn.RemoteAddr().String() })
-		s.scr.SetStringFunction("http", "getDatetime", func() string {
-			t := time.Now();
+		s.scr.SetStringFunction( "LocalAddr", func() string { return conn.LocalAddr().String() })
+		s.scr.SetStringFunction( "getRemoteAddr", func() string { return conn.RemoteAddr().String() })
+		s.scr.SetStringFunction( "getDatetime", func() string {
+			t := time.Now()
 			return fmt.Sprintf("%d-%02d-%02dT%02d:%02d:%02d-00:00\n",
 				t.Year(), t.Month(), t.Day(),
 				t.Hour(), t.Minute(), t.Second())
@@ -169,7 +168,7 @@ func (s *httpService) Handle(ctx context.Context, conn net.Conn) error {
 
 		body = body[:n]
 
-		responseString, err := s.scr.Handle("http", string(body))
+		responseString, err := s.scr.Handle(string(body))
 
 		io.Copy(ioutil.Discard, req.Body)
 

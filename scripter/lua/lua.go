@@ -15,8 +15,10 @@ var (
 	_ = scripter.Register("lua", New)
 )
 
-func New(options ...func(scripter.Scripter) error) (scripter.Scripter, error) {
-	s := &luaScripter{}
+func New(name string, options ...func(scripter.Scripter) error) (scripter.Scripter, error) {
+	s := &luaScripter{
+		name: name,
+	}
 
 	for _, optionFn := range options {
 		optionFn(s)
@@ -30,13 +32,15 @@ func New(options ...func(scripter.Scripter) error) (scripter.Scripter, error) {
 
 // The scripter state to which scripter functions are attached
 type luaScripter struct {
+	name string
+
 	Folder string `toml:"folder"`
 
 	scripts *sync.Map
 }
 
-func (l *luaScripter) InitScripts(service string) {
-	files, err := ioutil.ReadDir(fmt.Sprintf("%s/%s", l.Folder, service))
+func (l *luaScripter) InitScripts() {
+	files, err := ioutil.ReadDir(fmt.Sprintf("%s/%s", l.Folder, l.name))
 	if err != nil {
 		log.Errorf(err.Error())
 	}
@@ -45,15 +49,19 @@ func (l *luaScripter) InitScripts(service string) {
 	//Todo: Load basic lua functions
 
 	for _, f := range files {
-		ls.DoFile(fmt.Sprintf("%s/%s/%s", l.Folder, service, f.Name()))
+		ls.DoFile(fmt.Sprintf("%s/%s/%s", l.Folder, l.name, f.Name()))
 	}
 
-	l.scripts.Store(service, ls)
+	l.scripts.Store(l.name, ls)
+}
+
+func (l *luaScripter) SetGlobalFn(name string, fn func() string) {
+	l.SetStringFunction(name, fn)
 }
 
 // Handle incoming message string
-func (l *luaScripter) Handle(service string, message string) (string, error) {
-	ls, err := l.loadScript(service)
+func (l *luaScripter) Handle(message string) (string, error) {
+	ls, err := l.loadScript(l.name)
 	if err != nil {
 		return message, err
 	}
@@ -74,8 +82,8 @@ func (l *luaScripter) Handle(service string, message string) (string, error) {
 	return result, nil
 }
 
-func (l *luaScripter) SetVariable(service string, name string, value string) error {
-	ls, err := l.loadScript(service)
+func (l *luaScripter) SetVariable(name string, value string) error {
+	ls, err := l.loadScript(l.name)
 	if err != nil {
 		return err
 	}
@@ -85,8 +93,8 @@ func (l *luaScripter) SetVariable(service string, name string, value string) err
 	return nil
 }
 
-func (l *luaScripter) SetStringFunction(service string, name string, getString func() string) error {
-	ls, err := l.loadScript(service)
+func (l *luaScripter) SetStringFunction(name string, getString func() string) error {
+	ls, err := l.loadScript(l.name)
 	if err != nil {
 		return err
 	}
