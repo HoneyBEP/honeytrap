@@ -1,10 +1,4 @@
---
--- Created by IntelliJ IDEA.
--- User: nordi
--- Date: 7-5-2018
--- Time: 15:20
--- To change this template use File | Settings | File Templates.
---
+-- lua script for GPON exploit
 
 function canHandle()
     return true
@@ -15,7 +9,6 @@ function handle(message)
     if (url and string.match(url, 'gpon.php')) then
         return "wget: missing URL \nUsage: wget [OPTION]... [URL]... \n\nTry `wget --help' for more options.\n";
     end
-    --return message
     return message;
 end
 
