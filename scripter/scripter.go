@@ -42,7 +42,7 @@ type Scripter interface {
 type ConnectionWrapper interface {
 	Handle(message string) (string, error)
 	SetStringFunction(name string, getString func() string) error
-	SetFloatFunction(name string, getFloat func() float64) error
+	SetFloatFunction(service string, name string, getFloat func() float64) error
 }
 
 func WithConfig(c toml.Primitive) func(Scripter) error {
