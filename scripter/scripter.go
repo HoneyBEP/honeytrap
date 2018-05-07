@@ -5,7 +5,7 @@ import (
 )
 
 var (
-	scripters  = map[string]func(string, ...func(Scripter) error) (Scripter, error) {}
+	scripters = map[string]func(string, ...func(Scripter) error) (Scripter, error){}
 )
 
 func Register(key string, fn func(string, ...func(Scripter) error) (Scripter, error)) func(string, ...func(Scripter) error) (Scripter, error) {
