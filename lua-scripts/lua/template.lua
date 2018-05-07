@@ -1,4 +1,4 @@
---- Define if the Lua script can handle the request
+--- Define whether the Lua script can handle the request
 -- canHandle function returns the approval or disapproval to handle the connection. This is based on the information
 -- of the current connection and new request. The service is already determined by the Honeytrap implementation in Go.
 -- @param request the request of the connection
