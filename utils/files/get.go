@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"fmt"
 	"os"
-	"io/ioutil"
+	"crypto/sha256"
 )
 
 func Download(url string, path string) error {
@@ -16,7 +16,20 @@ func Download(url string, path string) error {
 	body := make([]byte, 1024)
 	n, err := resp.Body.Read(body)
 
-	err = ioutil.WriteFile(fmt.Sprintf("%s", path), body[:n], os.FileMode(os.O_RDWR))
+	// hash filename
+	h := sha256.New()
+	h.Write([]byte(url))
+	filename := fmt.Sprintf("%x", h.Sum(nil))
+
+	text := fmt.Sprintf("%s\n\n%s\n", url, body[:n])
+
+	f, err := os.OpenFile(fmt.Sprintf("%s/%s.txt", path, filename), os.O_APPEND|os.O_RDWR|os.O_CREATE, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.WriteString(text)
 	if err != nil {
 		return err
 	}
