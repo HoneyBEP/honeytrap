@@ -30,8 +30,9 @@ func GetAvailableScripterNames() []string {
 }
 
 type Scripter interface {
-	InitScripts()
+	InitScripts(string) error
 	Handle(message string) (string, error)
+	SetGlobalFn(name string, fn func() string) error
 	SetVariable(name string, value string) error
 	SetStringFunction(name string, getString func() string) error
 }

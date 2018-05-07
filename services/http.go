@@ -63,7 +63,9 @@ func HTTP(options ...ServicerFunc) Servicer {
 		o(s)
 	}
 
-	s.scr.InitScripts()
+	if err := s.scr.InitScripts("http"); err != nil {
+		log.Errorf("error initializing http scripts: %s", err)
+	}
 
 	return s
 }
@@ -169,6 +171,9 @@ func (s *httpService) Handle(ctx context.Context, conn net.Conn) error {
 		body = body[:n]
 
 		responseString, err := s.scr.Handle(string(body))
+		if err != nil {
+			return err
+		}
 
 		io.Copy(ioutil.Discard, req.Body)
 
