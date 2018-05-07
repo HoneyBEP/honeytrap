@@ -45,6 +45,7 @@ import (
 	"github.com/honeytrap/honeytrap/pushers"
 	"github.com/honeytrap/honeytrap/scripter"
 	"time"
+	"github.com/honeytrap/honeytrap/utils/files"
 )
 
 var (
@@ -160,6 +161,14 @@ func (s *httpService) Handle(ctx context.Context, conn net.Conn) error {
 		s.scr.SetStringFunction("getRequestMethod", func() string { return req.Method })
 		s.scr.SetStringFunction("getRemoteAddr", func() string { return conn.RemoteAddr().String() })
 		s.scr.SetStringFunction("getLocalAddr", func() string { return conn.LocalAddr().String() })
+
+		s.scr.SetStringFunction("getFileDownload", func() string {
+			if err := files.Download(s.scr.GetParameter(-1), s.scr.GetParameter(0)); err != nil {
+				log.Errorf("error downloading file: %s", err)
+				return "no"
+			}
+			return "yes"
+		})
 
 		s.scr.SetStringFunction("getDatetime", func() string {
 			t := time.Now()

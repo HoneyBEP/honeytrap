@@ -118,6 +118,19 @@ func (l *luaScripter) SetStringFunction(name string, getString func() string) er
 	return nil
 }
 
+// Get stack parameter
+func (l *luaScripter) GetParameter(index int) string {
+	for _, ls := range l.scripts[l.name] {
+		if ls.GetTop() >= 2 {
+			if parameter := ls.CheckString(ls.GetTop() + index); parameter != "" {
+				return parameter
+			}
+		}
+	}
+
+	return ""
+}
+
 // Closes the scripter state
 func (l *luaScripter) Close() {
 	l.Close()
