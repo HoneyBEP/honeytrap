@@ -2,6 +2,7 @@ package scripter
 
 import (
 	"github.com/BurntSushi/toml"
+	"net"
 )
 
 var (
@@ -31,9 +32,8 @@ func GetAvailableScripterNames() []string {
 
 type Scripter interface {
 	InitScripts(string) error
-	Handle(message string) (string, error)
-	SetGlobalFn(name string, fn func() string) error
-	SetStringFunction(name string, getString func() string) error
+	//SetGlobalFn(name string, fn func() string) error
+	GetConnection(service string, conn net.Conn) ConnectionWrapper
 }
 
 func WithConfig(c toml.Primitive) func(Scripter) error {
