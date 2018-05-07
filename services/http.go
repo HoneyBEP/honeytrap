@@ -156,9 +156,9 @@ func (s *httpService) Handle(ctx context.Context, conn net.Conn) error {
 			return err
 		}
 
-		s.scr.SetStringFunction("RequestURL", func() string { return req.URL.String() })
-		s.scr.SetStringFunction("RequestMethod", func() string { return req.Method })
-		s.scr.SetStringFunction("RemoteAddr", func() string { return conn.RemoteAddr().String() })
+		s.scr.SetStringFunction("getRequestURL", func() string { return req.URL.String() })
+		s.scr.SetStringFunction("getRequestMethod", func() string { return req.Method })
+		s.scr.SetStringFunction("getRemoteAddr", func() string { return conn.RemoteAddr().String() })
 		s.scr.SetStringFunction("getLocalAddr", func() string { return conn.LocalAddr().String() })
 
 		s.scr.SetStringFunction("getDatetime", func() string {
