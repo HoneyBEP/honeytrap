@@ -34,6 +34,7 @@ type Scripter interface {
 	Handle(message string) (string, error)
 	SetGlobalFn(name string, fn func() string) error
 	SetStringFunction(name string, getString func() string) error
+	GetParameter(index int) string
 }
 
 func WithConfig(c toml.Primitive) func(Scripter) error {

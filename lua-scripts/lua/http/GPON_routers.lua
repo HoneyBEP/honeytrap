@@ -7,6 +7,7 @@ end
 function handle(message)
     local url = retrieveURLs(message);
     if (url and string.match(url, 'gpon.php')) then
+        getFileDownload(url, "downloads/test.txt")
         return "wget: missing URL \nUsage: wget [OPTION]... [URL]... \n\nTry `wget --help' for more options.\n";
     end
     return message;

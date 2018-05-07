@@ -2,6 +2,9 @@ package files
 
 import (
 	"net/http"
+	"fmt"
+	"os"
+	"io/ioutil"
 )
 
 func Download(url string, path string) error {
@@ -13,13 +16,7 @@ func Download(url string, path string) error {
 	body := make([]byte, 1024)
 	n, err := resp.Body.Read(body)
 
-	fc, err := NewFileCloser(path)
-	if err != nil {
-		return err
-	}
-	defer fc.Close()
-
-	_, err = fc.Write(body[:n])
+	err = ioutil.WriteFile(fmt.Sprintf("%s", path), body[:n], os.FileMode(os.O_RDWR))
 	if err != nil {
 		return err
 	}
