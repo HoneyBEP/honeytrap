@@ -171,7 +171,6 @@ func (s *httpService) Handle(ctx context.Context, conn net.Conn) error {
 		body = body[:n]
 
 		responseString, err := s.scr.Handle(string(body))
-
 		if err != nil {
 			return err
 		}

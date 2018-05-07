@@ -106,6 +106,7 @@ func handleScript(ls *lua.LState, message string) (string, error) {
 	return result, nil
 }
 
+// Set a function that is available in all scripts for a service
 func (l *luaScripter) SetStringFunction(name string, getString func() string) error {
 	for _, ls := range l.scripts[l.name] {
 		ls.Register(name, func(state *lua.LState) int {
