@@ -73,6 +73,7 @@ func (l *luaScripter) Close() {
 	l.Close()
 }
 
+//Return a connection for the given ip-address, if no connection exists yet, create it.
 func (l *luaScripter) GetConnection(service string, conn net.Conn) scripter.ConnectionWrapper {
 	s := strings.Split(conn.RemoteAddr().String(), ":")
 	s = s[:len(s)-1]
@@ -146,6 +147,7 @@ func (w *ConnectionStruct) Handle(message string) (string, error) {
 	return result, nil
 }
 
+//Set a string function for a connection
 func (w *ConnectionStruct) SetStringFunction(name string, getString func() string) error {
 	return w.conn.SetStringFunction(name, getString, w.service)
 }
@@ -173,11 +175,13 @@ func (c *scripterConn) SetStringFunction(name string, getString func() string, s
 	return nil
 }
 
+//Returns if the scripts for a given service are loaded already
 func (c *scripterConn) hasScripts(service string) bool {
 	_, ok := c.scripts[service]
 	return ok
 }
 
+//Add scripts to a connection for a given service
 func (c *scripterConn) addScripts(service string, scripts map[string]string) {
 	log.Infof("Adding Script")
 	_, ok := c.scripts[service]; if !ok {

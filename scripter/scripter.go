@@ -30,6 +30,7 @@ func GetAvailableScripterNames() []string {
 	return out
 }
 
+//The scripter interface that implements basic scripter methods
 type Scripter interface {
 	Init(string) error
 	//SetGlobalFn(name string, fn func() string) error
@@ -37,11 +38,11 @@ type Scripter interface {
 	Close()
 }
 
+//The connectionWrapper interface that implements the basic method that a connection should have
 type ConnectionWrapper interface {
 	Handle(message string) (string, error)
 	SetStringFunction(name string, getString func() string) error
 }
-
 
 func WithConfig(c toml.Primitive) func(Scripter) error {
 	return func(scr Scripter) error {
