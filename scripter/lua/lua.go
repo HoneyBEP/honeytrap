@@ -190,6 +190,7 @@ func (c *scripterConn) addScripts(service string, scripts map[string]string) {
 		ls := lua.NewState()
 		if err := ls.DoFile(script); err != nil {
 			log.Errorf("Unable to load lua script: %s", err)
+			continue
 		}
 		c.scripts[service][name] = ls
 	}
