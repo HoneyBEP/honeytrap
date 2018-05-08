@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"errors"
 	"net"
-	"context"
 	"strings"
 )
 
@@ -73,7 +72,7 @@ func (l *luaScripter) Close() {
 }
 
 //Return a connection for the given ip-address, if no connection exists yet, create it.
-func (l *luaScripter) GetConnection(service string, conn net.Conn) (scripter.ConnectionWrapper, error) {
+func (l *luaScripter) GetConnection(service string, conn net.Conn) scripter.ConnectionWrapper {
 	s := strings.Split(conn.RemoteAddr().String(), ":")
 	s = s[:len(s)-1]
 	ip := strings.Join(s, ":")
@@ -84,7 +83,6 @@ func (l *luaScripter) GetConnection(service string, conn net.Conn) (scripter.Con
 		sConn = scripterConn{}
 		sConn.conn = conn
 		sConn.scripts = map[string]map[string]*lua.LState{}
-		sConn.cancelFuncs = map[string]map[string]context.CancelFunc{}
 		l.connections[ip] = sConn
 	}
 
@@ -92,7 +90,7 @@ func (l *luaScripter) GetConnection(service string, conn net.Conn) (scripter.Con
 		sConn.addScripts(service, l.scripts[service])
 	}
 
-	return &ConnectionStruct{service, sConn}, nil
+	return &ConnectionStruct{service, sConn}
 }
 
 //func (l *luaScripter) SetGlobalFn(name string, fn func() string) error {
@@ -158,7 +156,6 @@ type scripterConn struct {
 
 	//List of lua scripts running for this connection: directory/scriptname
 	scripts map[string]map[string]*lua.LState
-	cancelFuncs map[string]map[string]context.CancelFunc
 }
 
 // Set a function that is available in all scripts for a service
@@ -183,7 +180,6 @@ func (c *scripterConn) hasScripts(service string) bool {
 func (c *scripterConn) addScripts(service string, scripts map[string]string) {
 	_, ok := c.scripts[service]; if !ok {
 		c.scripts[service] = map[string]*lua.LState{}
-		c.cancelFuncs[service] = map[string]context.CancelFunc{}
 	}
 
 	for name, script := range scripts {
