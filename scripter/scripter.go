@@ -34,7 +34,7 @@ func GetAvailableScripterNames() []string {
 type Scripter interface {
 	Init(string) error
 	//SetGlobalFn(name string, fn func() string) error
-	GetConnection(service string, conn net.Conn) ConnectionWrapper
+	GetConnection(service string, conn net.Conn) (ConnectionWrapper, error)
 	Close()
 }
 

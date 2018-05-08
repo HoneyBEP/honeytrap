@@ -39,7 +39,6 @@ func New(name string, options ...func(scripter.Scripter) error) (scripter.Script
 // The scripter state to which scripter functions are attached
 type luaScripter struct {
 	name string
-	service string
 
 	Folder string `toml:"folder"`
 
@@ -74,7 +73,7 @@ func (l *luaScripter) Close() {
 }
 
 //Return a connection for the given ip-address, if no connection exists yet, create it.
-func (l *luaScripter) GetConnection(service string, conn net.Conn) scripter.ConnectionWrapper {
+func (l *luaScripter) GetConnection(service string, conn net.Conn) (scripter.ConnectionWrapper, error) {
 	s := strings.Split(conn.RemoteAddr().String(), ":")
 	s = s[:len(s)-1]
 	ip := strings.Join(s, ":")
@@ -90,10 +89,12 @@ func (l *luaScripter) GetConnection(service string, conn net.Conn) scripter.Conn
 	}
 
 	if !sConn.hasScripts(service) {
-		sConn.addScripts(service, l.scripts[service])
+		if err := sConn.addScripts(service, l.scripts[service]); err != nil {
+			return nil, err
+		}
 	}
 
-	return &ConnectionStruct{service, sConn}
+	return &ConnectionStruct{service, sConn}, nil
 }
 
 //func (l *luaScripter) SetGlobalFn(name string, fn func() string) error {
@@ -181,14 +182,19 @@ func (c *scripterConn) hasScripts(service string) bool {
 }
 
 //Add scripts to a connection for a given service
-func (c *scripterConn) addScripts(service string, scripts map[string]string) {
+func (c *scripterConn) addScripts(service string, scripts map[string]string) error {
 	_, ok := c.scripts[service]; if !ok {
 		c.scripts[service] = map[string]*lua.LState{}
 		c.cancelFuncs[service] = map[string]context.CancelFunc{}
 	}
+
 	for name, script := range scripts {
 		ls := lua.NewState()
-		ls.DoFile(script)
+		if err := ls.DoFile(script); err != nil {
+			return err
+		}
 		c.scripts[service][name] = ls
 	}
+
+	return nil
 }
