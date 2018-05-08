@@ -136,10 +136,7 @@ func Cookies(cookies []*http.Cookie) event.Option {
 }
 
 func (s *httpService) Handle(ctx context.Context, conn net.Conn) error {
-	scr, err := s.scr.GetConnection("http", conn)
-	if err != nil {
-		log.Errorf("Unable to get connection from scripter: %s", err)
-	}
+	scr := s.scr.GetConnection("http", conn)
 	for {
 		br := bufio.NewReader(conn)
 

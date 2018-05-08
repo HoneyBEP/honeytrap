@@ -89,9 +89,7 @@ func (l *luaScripter) GetConnection(service string, conn net.Conn) (scripter.Con
 	}
 
 	if !sConn.hasScripts(service) {
-		if err := sConn.addScripts(service, l.scripts[service]); err != nil {
-			return nil, err
-		}
+		sConn.addScripts(service, l.scripts[service])
 	}
 
 	return &ConnectionStruct{service, sConn}, nil
@@ -182,7 +180,7 @@ func (c *scripterConn) hasScripts(service string) bool {
 }
 
 //Add scripts to a connection for a given service
-func (c *scripterConn) addScripts(service string, scripts map[string]string) error {
+func (c *scripterConn) addScripts(service string, scripts map[string]string) {
 	_, ok := c.scripts[service]; if !ok {
 		c.scripts[service] = map[string]*lua.LState{}
 		c.cancelFuncs[service] = map[string]context.CancelFunc{}
@@ -191,10 +189,8 @@ func (c *scripterConn) addScripts(service string, scripts map[string]string) err
 	for name, script := range scripts {
 		ls := lua.NewState()
 		if err := ls.DoFile(script); err != nil {
-			return err
+			log.Errorf("Unable to load lua script: %s", err)
 		}
 		c.scripts[service][name] = ls
 	}
-
-	return nil
 }
