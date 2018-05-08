@@ -121,7 +121,9 @@ func handleScript(ls *lua.LState, message string) (string, error) {
 	return result, nil
 }
 
-//////////  Connection Wrapper struct \\\\\\\\\\\
+
+
+// Connection Wrapper struct
 type ConnectionStruct struct {
 	service string
 	conn scripterConn
@@ -151,7 +153,7 @@ func (w *ConnectionStruct) SetStringFunction(name string, getString func() strin
 
 
 
-//////////  Scripter Connection struct \\\\\\\\\\\
+// Scripter Connection struct
 type scripterConn struct {
 	conn net.Conn
 
