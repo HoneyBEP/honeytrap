@@ -1,5 +1,9 @@
 language: go
 
+git:
+  submodules:
+    false
+
 go:
   - master
   - tip
