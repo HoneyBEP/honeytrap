@@ -78,7 +78,6 @@ func (l *luaScripter) GetConnection(service string, conn net.Conn) scripter.Conn
 	s := strings.Split(conn.RemoteAddr().String(), ":")
 	s = s[:len(s)-1]
 	ip := strings.Join(s, ":")
-	log.Infof("Getting connection for: %s", ip)
 	var sConn scripterConn
 	var ok bool
 
@@ -88,11 +87,9 @@ func (l *luaScripter) GetConnection(service string, conn net.Conn) scripter.Conn
 		sConn.scripts = map[string]map[string]*lua.LState{}
 		sConn.cancelFuncs = map[string]map[string]context.CancelFunc{}
 		l.connections[ip] = sConn
-		log.Infof("New connection returned")
 	}
 
 	if !sConn.hasScripts(service) {
-		log.Infof("Adding scripts for service: %s", service)
 		sConn.addScripts(service, l.scripts[service])
 	}
 
@@ -183,16 +180,13 @@ func (c *scripterConn) hasScripts(service string) bool {
 
 //Add scripts to a connection for a given service
 func (c *scripterConn) addScripts(service string, scripts map[string]string) {
-	log.Infof("Adding Script")
 	_, ok := c.scripts[service]; if !ok {
 		c.scripts[service] = map[string]*lua.LState{}
 		c.cancelFuncs[service] = map[string]context.CancelFunc{}
 	}
 	for name, script := range scripts {
-		log.Infof("Adding Script width name: %s", name)
 		ls := lua.NewState()
 		ls.DoFile(script)
 		c.scripts[service][name] = ls
-		log.Infof("Finished adding Script width name: %s", name)
 	}
 }
