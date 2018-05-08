@@ -29,6 +29,9 @@ addons:
     packages:
     - lxc
 
+before_install:
+  - git submodule update --init --recursive
+
 install:
   - sudo add-apt-repository -y ppa:ubuntu-lxc/stable
   - sudo apt-get update -qq
