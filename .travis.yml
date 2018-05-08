@@ -12,7 +12,7 @@ go:
 sudo: required
 dist: trusty
 
-go_import_path: github.com/honeyBEP/honeytrap
+go_import_path: github.com/honeytrap/honeytrap
 
 services:
  - docker
