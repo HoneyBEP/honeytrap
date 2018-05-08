@@ -9,6 +9,7 @@ import (
 	"errors"
 	"net"
 	"context"
+	"strings"
 )
 
 var log = logging.MustGetLogger("scripter/lua")
@@ -20,18 +21,19 @@ var (
 // Create a lua scripter instance that handles the connection to all lua-scripts
 // A list where all scripts are stored in is generated
 func New(name string, options ...func(scripter.Scripter) error) (scripter.Scripter, error) {
-	s := &luaScripter{
+	l := &luaScripter{
 		name: name,
 	}
 
 	for _, optionFn := range options {
-		optionFn(s)
+		optionFn(l)
 	}
 
-	log.Infof("Using folder: %s", s.Folder)
-	s.scripts = map[string]map[string]*lua.LState{}
+	log.Infof("Using folder: %s", l.Folder)
+	l.scripts = map[string]map[string]string{}
+	l.connections = map[string]scripterConn{}
 
-	return s, nil
+	return l, nil
 }
 
 // The scripter state to which scripter functions are attached
@@ -42,7 +44,7 @@ type luaScripter struct {
 	Folder string `toml:"folder"`
 
 	//Source of the states, initialized per connection: directory/scriptname
-	scripts map[string]map[string]*lua.LState
+	scripts map[string]map[string]string
 	//List of connections keyed by 'ip'
 	connections map[string]scripterConn
 }
@@ -50,26 +52,50 @@ type luaScripter struct {
 // Initialize the scripts from a specific service
 // The service name is given and the method will loop over all files in the lua-scripts folder with the given service name
 // All of these scripts are then loaded and stored in the scripts map
-func (l *luaScripter) InitScripts(service string) error {
-	files, err := ioutil.ReadDir(fmt.Sprintf("%s/%s/%s", l.Folder, service, service))
+func (l *luaScripter) Init(service string) error {
+	files, err := ioutil.ReadDir(fmt.Sprintf("%s/%s/%s", l.Folder, l.name, service))
 	if err != nil {
 		return err
 	}
 
 	// TODO: Load basic lua functions from shared context
-	l.scripts[service] = map[string]*lua.LState {}
+	l.scripts[service] = map[string]string{}
 
 	for _, f := range files {
-		ls := lua.NewState()
-		ls.DoFile(fmt.Sprintf("%s/%s/%s/%s", l.Folder, service, service, f.Name()))
-		if err != nil {
-			return err
-		}
-
-		l.scripts[service][f.Name()] = ls
+		l.scripts[service][f.Name()] = fmt.Sprintf("%s/%s/%s/%s", l.Folder, l.name, service, f.Name())
 	}
 
 	return nil
+}
+
+// Closes the scripter state
+func (l *luaScripter) Close() {
+	l.Close()
+}
+
+func (l *luaScripter) GetConnection(service string, conn net.Conn) scripter.ConnectionWrapper {
+	s := strings.Split(conn.RemoteAddr().String(), ":")
+	s = s[:len(s)-1]
+	ip := strings.Join(s, ":")
+	log.Infof("Getting connection for: %s", ip)
+	var sConn scripterConn
+	var ok bool
+
+	if sConn, ok = l.connections[ip]; !ok {
+		sConn = scripterConn{}
+		sConn.conn = conn
+		sConn.scripts = map[string]map[string]*lua.LState{}
+		sConn.cancelFuncs = map[string]map[string]context.CancelFunc{}
+		l.connections[ip] = sConn
+		log.Infof("New connection returned")
+	}
+
+	if !sConn.hasScripts(service) {
+		log.Infof("Adding scripts for service: %s", service)
+		sConn.addScripts(service, l.scripts[service])
+	}
+
+	return &ConnectionStruct{service, sConn}
 }
 
 //func (l *luaScripter) SetGlobalFn(name string, fn func() string) error {
@@ -97,43 +123,20 @@ func handleScript(ls *lua.LState, message string) (string, error) {
 	return result, nil
 }
 
-// Closes the scripter state
-func (l *luaScripter) Close() {
-	l.Close()
-}
-
-func (l *luaScripter) GetConnection(service string, conn net.Conn) ConnectionWrapper {
-	ip := conn.RemoteAddr().String()
-	var sConn scripterConn
-	var ok bool
-	if sConn, ok = l.connections[ip]; !ok {
-		sConn = scripterConn{}
-		sConn.conn = conn
-		sConn.scripts = map[string]map[string]*lua.LState{}
-		sConn.cancelFuncs = map[string]map[string]context.CancelFunc{}
-	}
-
-	if !sConn.hasScripts(service) {
-		sConn.addScripts(service, l.scripts[service])
-	}
-
-	return ConnectionWrapper{service, sConn}
-}
-
 //////////  Connection Wrapper struct \\\\\\\\\\\
-type ConnectionWrapper struct {
+type ConnectionStruct struct {
 	service string
 	conn scripterConn
 }
 
 // Handle incoming message string
 // Get all scripts for a given service and pass the string to each script
-func (w *ConnectionWrapper) Handle(message string) (string, error) {
+func (w *ConnectionStruct) Handle(message string) (string, error) {
 	result := message
 	var err error
 
 	// TODO: Figure out the correct way to call all handle methods
-	for _, script := range w.getScripts() {
+	for _, script := range w.conn.scripts[w.service] {
 		result, err = handleScript(script, result)
 		if err != nil {
 			return "", err
@@ -143,21 +146,10 @@ func (w *ConnectionWrapper) Handle(message string) (string, error) {
 	return result, nil
 }
 
-func (w *ConnectionWrapper) getScripts() (map[string]*lua.LState) {
-	return w.conn.scripts[w.service]
+func (w *ConnectionStruct) SetStringFunction(name string, getString func() string) error {
+	return w.conn.SetStringFunction(name, getString, w.service)
 }
 
-// Set a function that is available in all scripts for a service
-func (w *ConnectionWrapper) SetStringFunction(name string, getString func() string) error {
-	for _, script := range w.getScripts() {
-		script.Register(name, func(state *lua.LState) int {
-			state.Push(lua.LString(getString()))
-			return 1
-		})
-	}
-
-	return nil
-}
 
 
 //////////  Scripter Connection struct \\\\\\\\\\\
@@ -169,13 +161,34 @@ type scripterConn struct {
 	cancelFuncs map[string]map[string]context.CancelFunc
 }
 
+// Set a function that is available in all scripts for a service
+func (c *scripterConn) SetStringFunction(name string, getString func() string, service string) error {
+	for _, script := range c.scripts[service] {
+		script.Register(name, func(state *lua.LState) int {
+			state.Push(lua.LString(getString()))
+			return 1
+		})
+	}
+
+	return nil
+}
+
 func (c *scripterConn) hasScripts(service string) bool {
 	_, ok := c.scripts[service]
 	return ok
 }
 
-func (c *scripterConn) addScripts(service string, scripts map[string]*lua.LState) {
+func (c *scripterConn) addScripts(service string, scripts map[string]string) {
+	log.Infof("Adding Script")
+	_, ok := c.scripts[service]; if !ok {
+		c.scripts[service] = map[string]*lua.LState{}
+		c.cancelFuncs[service] = map[string]context.CancelFunc{}
+	}
 	for name, script := range scripts {
-		c.scripts[service][name], c.cancelFuncs[service][name] = script.NewThread()
+		log.Infof("Adding Script width name: %s", name)
+		ls := lua.NewState()
+		ls.DoFile(script)
+		c.scripts[service][name] = ls
+		log.Infof("Finished adding Script width name: %s", name)
 	}
 }

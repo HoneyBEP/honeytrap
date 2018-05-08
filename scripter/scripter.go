@@ -31,10 +31,17 @@ func GetAvailableScripterNames() []string {
 }
 
 type Scripter interface {
-	InitScripts(string) error
+	Init(string) error
 	//SetGlobalFn(name string, fn func() string) error
 	GetConnection(service string, conn net.Conn) ConnectionWrapper
+	Close()
 }
+
+type ConnectionWrapper interface {
+	Handle(message string) (string, error)
+	SetStringFunction(name string, getString func() string) error
+}
+
 
 func WithConfig(c toml.Primitive) func(Scripter) error {
 	return func(scr Scripter) error {
