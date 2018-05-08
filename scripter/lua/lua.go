@@ -70,6 +70,39 @@ func (l *luaScripter) SetGlobalFn(name string, fn func() string) error {
 	return l.SetStringFunction(name, fn)
 }
 
+// Check whether scripter can handle incoming connection
+// Get all scripts for a given service and pass the string to each script
+func (l *luaScripter) CanHandle(message string) bool {
+	// TODO: Is checking all of them the way to go?
+	for _, ls := range l.scripts[l.name] {
+		result, err := canHandleScript(ls, message)
+		if err != nil {
+			log.Errorf("%s", err)
+		} else if result {
+			return true
+		}
+	}
+
+	return false
+}
+
+// Call canHandle Method in Lua state
+func canHandleScript(ls *lua.LState, message string) (bool, error) {
+	// Call method to check canHandle on the message
+	if err := ls.CallByParam(lua.P{
+		Fn: ls.GetGlobal("canHandle"),
+		NRet:1,
+		Protect:true,
+	}, lua.LString(message)); err != nil {
+		return false, errors.New(fmt.Sprintf("error calling canHandle method: %s" , err))
+	}
+
+	result := ls.ToBool(-1)
+	ls.Pop(1)
+
+	return result, nil
+}
+
 // Handle incoming message string
 // Get all scripts for a given service and pass the string to each script
 func (l *luaScripter) Handle(message string) (string, error) {
@@ -100,7 +133,7 @@ func handleScript(ls *lua.LState, message string) (string, error) {
 	}
 
 	// Get result of the function
-	result := ls.Get(-1).String()
+	result := ls.ToString(-1)
 	ls.Pop(1)
 
 	return result, nil
