@@ -23,7 +23,7 @@ func Download(url string, path string) error {
 
 	text := fmt.Sprintf("%s\n\n%s\n", url, body[:n])
 
-	f, err := os.OpenFile(fmt.Sprintf("%s/%s.txt", path, filename), os.O_APPEND|os.O_RDWR|os.O_CREATE, 0600)
+	f, err := os.OpenFile(fmt.Sprintf("%s/%s.txt", path, filename), os.O_APPEND|os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		return err
 	}
