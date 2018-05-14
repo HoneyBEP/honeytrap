@@ -192,7 +192,7 @@ func (c *scripterConn) SetFloatFunction(name string, getFloat func() float64, se
 	return nil
 }
 
-// Get stack parameter
+// Get the stack parameter from lua to be used in Go functions
 func (c *scripterConn) GetParameter(index int, service string) (string, error) {
 	for _, script := range c.scripts[service] {
 		if script.GetTop() >= 2 {
