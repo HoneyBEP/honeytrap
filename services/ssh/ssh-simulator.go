@@ -407,7 +407,10 @@ func (s *sshSimulatorService) Handle(ctx context.Context, conn net.Conn) error {
 								event.Custom("ssh.command", line),
 							))
 
-							resp, _ := sConn.Handle(line)
+							resp, err := sConn.Handle(line)
+							if err != nil {
+								log.Errorf("Error while handle: %s", err)
+							}
 							term.Write([]byte(resp))
 
 							// term.Write([]byte(fmt.Sprintf("%s: command not found\n", line)))
