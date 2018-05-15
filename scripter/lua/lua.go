@@ -11,6 +11,7 @@ import (
 	"strings"
 	"github.com/honeytrap/honeytrap/utils/files"
 	"time"
+	"github.com/honeytrap/honeytrap/abtester"
 )
 
 var log = logging.MustGetLogger("scripter/lua")
@@ -33,6 +34,9 @@ func New(name string, options ...func(scripter.Scripter) error) (scripter.Script
 	log.Infof("Using folder: %s", l.Folder)
 	l.scripts = map[string]map[string]string{}
 	l.connections = map[string]scripterConn{}
+	l.abTester, _ = abtester.Namespace("lua")
+
+	l.abTester.LoadFromFile("scripter/abtests.json")
 
 	return l, nil
 }
@@ -47,6 +51,8 @@ type luaScripter struct {
 	scripts map[string]map[string]string
 	//List of connections keyed by 'ip'
 	connections map[string]scripterConn
+
+	abTester abtester.Abtester
 }
 
 // Initialize the scripts from a specific service
@@ -85,6 +91,7 @@ func (l *luaScripter) GetConnection(service string, conn net.Conn) scripter.Conn
 		sConn = scripterConn{}
 		sConn.conn = conn
 		sConn.scripts = map[string]map[string]*lua.LState{}
+		sConn.abTester = l.abTester
 		l.connections[ip] = sConn
 	}
 
@@ -168,6 +175,8 @@ type scripterConn struct {
 
 	//List of lua scripts running for this connection: directory/scriptname
 	scripts map[string]map[string]*lua.LState
+
+	abTester abtester.Abtester
 }
 
 // Set a function that is available in all scripts for a service
@@ -233,6 +242,18 @@ func (c *scripterConn) setBasicMethods(service string) {
 			return "no"
 		}
 		return "yes"
+	}, service)
+
+	c.SetStringFunction("getAbTest", func() string {
+		key, _ := c.GetParameter(0, service)
+
+		val, err := c.abTester.GetForGroup(service, key, -1)
+
+		if err != nil {
+			return "_"
+		}
+
+		return val
 	}, service)
 }
 
