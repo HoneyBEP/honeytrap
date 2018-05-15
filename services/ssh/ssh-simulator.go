@@ -407,10 +407,15 @@ func (s *sshSimulatorService) Handle(ctx context.Context, conn net.Conn) error {
 								event.Custom("ssh.command", line),
 							))
 
-							resp, _ := sConn.Handle(line)
-							term.Write([]byte(resp))
+							resp, err := sConn.Handle(line)
+							if err != nil {
+								log.Errorf("Error running scripter: %s", err.Error())
+							} else {
+								term.Write([]byte(resp))
+								continue
+							}
 
-							// term.Write([]byte(fmt.Sprintf("%s: command not found\n", line)))
+							term.Write([]byte(fmt.Sprintf("%s: command not found\n", line)))
 						}
 					} else if req.Type == "exec" {
 						defer channel.Close()
@@ -424,11 +429,19 @@ func (s *sshSimulatorService) Handle(ctx context.Context, conn net.Conn) error {
 
 							payload := decoder.String()
 
-							resp, _ := sConn.Handle(payload)
+							resp, err := sConn.Handle(payload)
 							channel.Write([]byte(fmt.Sprintf("%s", resp)))
+
+							if err != nil {
+								log.Errorf("Error running scripter: %s", err.Error())
+								channel.Write([]byte(fmt.Sprintf("%s: command not found\n", payload)))
+								break
+							} else {
+								channel.Write([]byte(fmt.Sprintf("%s", resp)))
+								continue
+							}
 						}
 
-						// channel.Write([]byte(fmt.Sprintf("%s: command not found\n", "ls")))
 						channel.SendRequest("exit-status", false, []byte{0, 0, 0, 0})
 						return
 					} else {
