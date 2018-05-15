@@ -39,6 +39,7 @@ import (
 	"io/ioutil"
 )
 
+//Interface that gives 5 methods to get and set ab-tests
 type Abtester interface {
 	Get(key string, item int) (string, error)
 	GetForGroup(group string, key string, item int) (string, error)
@@ -47,6 +48,8 @@ type Abtester interface {
 	LoadFromFile(fileName string) error
 }
 
+//Get an ab-tester for a specific name, creating a storage for it
+//When you wish to use an ab-tester, get it by using abtester.Namespace(%your abtestername%)
 func Namespace(namespace string) (*abTester, error) {
 	st, err := storage.Namespace(fmt.Sprintf("abtester_%s", namespace))
 	return &abTester{
@@ -54,10 +57,12 @@ func Namespace(namespace string) (*abTester, error) {
 	}, err
 }
 
+//Struct that stores the storage that is used by each tester
 type abTester struct {
 	st storage.Storage
 }
 
+//Return the ith = (item) value for a specific key, when item = -1, return a random value.
 func (s *abTester) Get(key string, item int) (string, error) {
 	data, err := s.st.Get(key)
 	if err != nil {
@@ -68,27 +73,33 @@ func (s *abTester) Get(key string, item int) (string, error) {
 	return getItem(options, item)
 }
 
+//Get, but with a group specified, used when multiple sets of tests belong to the same abtester
 func (s *abTester) GetForGroup(group string, key string, item int) (string, error) {
 	return s.Get(fmt.Sprintf("%s_%s", group, key), item)
 }
 
+//Set a value for a specific key, ignored if the value is already known for the given key
 func (s *abTester) Set(key string, value string) error {
 	data, err := s.st.Get(key)
 	if err != nil && len(data) > 0 {
 		return err
 	}
 
-	options := append(byteToString(data), value)
-
-	s.st.Set(key, stringToByte(options))
+	options := byteToString(data)
+	if !contains(options, value) {
+		options = append(options, value)
+		s.st.Set(key, stringToByte(options))
+	}
 
 	return nil
 }
 
+//Set a value for a specific key in a group
 func (s *abTester) SetForGroup(group string, key string, value string) error {
 	return s.Set(fmt.Sprintf("%s_%s", group, key), value)
 }
 
+//Load all groups/keys/values from a given json file
 func (s *abTester) LoadFromFile(fileName string) error {
 	file, _ := ioutil.ReadFile(fileName)
 	var objmap map[string]map[string][]string
@@ -105,6 +116,7 @@ func (s *abTester) LoadFromFile(fileName string) error {
 	return err
 }
 
+//Change a byte array to string array
 func byteToString(data []byte) []string {
 	if len(data) == 0 {
 		return []string{}
@@ -112,10 +124,12 @@ func byteToString(data []byte) []string {
 	return strings.Split(string(data), ";;;")
 }
 
+//Change a string array to a byte array
 func stringToByte(data []string) []byte {
 	return []byte(strings.Join(data, ";;;"))
 }
 
+//Get a specific item from a list of options, when item = -1, return a random value from the list
 func getItem(options []string, item int) ( string, error ) {
 	var result string
 	if len(options) == 0 {
@@ -127,4 +141,14 @@ func getItem(options []string, item int) ( string, error ) {
 		result = options[rand.Intn(len(options)-1)]
 	}
 	return result, nil
+}
+
+//Check if the value is already in the list, return true if the array contains the value
+func contains(arr []string, str string) bool {
+	for _, a := range arr {
+		if a == str {
+			return true
+		}
+	}
+	return false
 }

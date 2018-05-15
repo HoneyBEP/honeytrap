@@ -59,7 +59,7 @@ type luaScripter struct {
 // The service name is given and the method will loop over all files in the lua-scripts folder with the given service name
 // All of these scripts are then loaded and stored in the scripts map
 func (l *luaScripter) Init(service string) error {
-	files, err := ioutil.ReadDir(fmt.Sprintf("%s/%s/%s", l.Folder, l.name, service))
+	fileNames, err := ioutil.ReadDir(fmt.Sprintf("%s/%s/%s", l.Folder, l.name, service))
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func (l *luaScripter) Init(service string) error {
 	// TODO: Load basic lua functions from shared context
 	l.scripts[service] = map[string]string{}
 
-	for _, f := range files {
+	for _, f := range fileNames {
 		l.scripts[service][f.Name()] = fmt.Sprintf("%s/%s/%s/%s", l.Folder, l.name, service, f.Name())
 	}
 
@@ -206,7 +206,7 @@ func (c *scripterConn) SetFloatFunction(name string, getFloat func() float64, se
 // Get the stack parameter from lua to be used in Go functions
 func (c *scripterConn) GetParameter(index int, service string) (string, error) {
 	for _, script := range c.scripts[service] {
-		if script.GetTop() >= 2 {
+		if script.GetTop() >= 1 {
 			if parameter := script.CheckString(script.GetTop() + index); parameter != "" {
 				return parameter, nil
 			}
@@ -222,6 +222,7 @@ func (c *scripterConn) hasScripts(service string) bool {
 	return ok
 }
 
+//Set methods that can be called by each lua script, returning basic functionality
 func (c *scripterConn) setBasicMethods(service string) {
 	c.SetStringFunction("getRemoteAddr", func() string { return c.conn.RemoteAddr().String() }, service)
 	c.SetStringFunction("getLocalAddr", func() string { return c.conn.LocalAddr().String() }, service)
