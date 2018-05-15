@@ -249,9 +249,8 @@ func (c *scripterConn) setBasicMethods(service string) {
 		key, _ := c.GetParameter(0, service)
 
 		val, err := c.abTester.GetForGroup(service, key, -1)
-
 		if err != nil {
-			return "_"
+			return "_" //No response, _ so lua knows it has no ab-test
 		}
 
 		return val

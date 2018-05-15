@@ -39,7 +39,7 @@ import (
 	"io/ioutil"
 )
 
-//Interface that gives 5 methods to get and set ab-tests
+//Interface that gives methods to get and set ab-tests
 type Abtester interface {
 	Get(key string, item int) (string, error)
 	GetForGroup(group string, key string, item int) (string, error)
@@ -52,6 +52,10 @@ type Abtester interface {
 //When you wish to use an ab-tester, get it by using abtester.Namespace(%your abtestername%)
 func Namespace(namespace string) (*abTester, error) {
 	st, err := storage.Namespace(fmt.Sprintf("abtester_%s", namespace))
+
+	if err != nil {
+		return nil, err
+	}
 	return &abTester{
 		st: st,
 	}, err
@@ -130,11 +134,11 @@ func stringToByte(data []string) []byte {
 }
 
 //Get a specific item from a list of options, when item = -1, return a random value from the list
-func getItem(options []string, item int) ( string, error ) {
-	var result string
+func getItem(options []string, item int) (string, error) {
 	if len(options) == 0 {
 		return "", fmt.Errorf("no abTest found")
 	}
+	var result string
 	if item > 0 && item < len(options) {
 		result = options[item]
 	} else {
