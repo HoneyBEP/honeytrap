@@ -71,7 +71,7 @@ func (c *luaConn) GetParameters(params []string, service string) (map[string]str
 		if script.GetTop() >= len(params) {
 			m := make(map[string]string)
 			for index, param := range params {
-				m[param] = script.CheckString(script.GetTop() - len(params) + index)
+				m[param] = script.CheckString(script.GetTop() - len(params) + (index + 1))
 			}
 			return m, nil
 		}
