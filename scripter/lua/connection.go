@@ -161,11 +161,8 @@ func handleScript(ls *lua.LState, message string) (*scripter.Result, error) {
 }
 
 func (c *luaConn) HandleScripts(service string, message string) (*scripter.Result, error) {
-	var result *scripter.Result
-	var err error
-
 	for _, script := range c.scripts[service] {
-		result, err = handleScript(script, message)
+		result, err := handleScript(script, message)
 		if err != nil {
 			return nil, err
 		}
