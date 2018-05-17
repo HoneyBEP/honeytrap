@@ -55,7 +55,6 @@ type ConnectionWrapper interface {
 
 type ScrConn interface {
 	GetConn() net.Conn
-	GetAbTester() abtester.Abtester
 	SetStringFunction(name string, getString func() string, service string) error
 	SetFloatFunction(name string, getFloat func() float64, service string) error
 	SetVoidFunction(name string, doVoid func(), service string) error
@@ -63,6 +62,10 @@ type ScrConn interface {
 	HasScripts(service string) bool
 	AddScripts(service string, scripts map[string]string)
 	HandleScripts(service string, message string) (string, error)
+}
+
+type ScrAbTester interface {
+	GetAbTester() abtester.Abtester
 }
 
 func WithConfig(c toml.Primitive) func(Scripter) error {
@@ -94,17 +97,19 @@ func SetBasicMethods(c ScrConn, service string) {
 		return "yes"
 	}, service)
 
-	//In the script the function 'getAbTest(key)' can be called, returning a random result for the given key
-	c.SetStringFunction("getAbTest", func() string {
-		key, _ := c.GetParameter(0, service)
+	if ab, ok := c.(ScrAbTester); ok {
+		//In the script the function 'getAbTest(key)' can be called, returning a random result for the given key
+		c.SetStringFunction("getAbTest", func() string {
+			key, _ := c.GetParameter(0, service)
 
-		val, err := c.GetAbTester().GetForGroup(service, key, -1)
-		if err != nil {
-			return "_" //No response, _ so lua knows it has no ab-test
-		}
+			val, err := ab.GetAbTester().GetForGroup(service, key, -1)
+			if err != nil {
+				return "_" //No response, _ so lua knows it has no ab-test
+			}
 
-		return val
-	}, service)
+			return val
+		}, service)
+	}
 
 	//In the script the function 'doLog(type, message)' can be called, with type = logging type and message the message
 	c.SetVoidFunction("doLog", func() {
