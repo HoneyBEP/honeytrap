@@ -7,8 +7,6 @@ import (
 	"github.com/honeytrap/honeytrap/abtester"
 	"errors"
 	"github.com/honeytrap/honeytrap/scripter"
-	"time"
-	"github.com/honeytrap/honeytrap/utils/files"
 )
 
 // Scripter Connection struct
@@ -84,40 +82,6 @@ func (c *luaConn) GetParameters(params []string, service string) (map[string]str
 func (c *luaConn) HasScripts(service string) bool {
 	_, ok := c.scripts[service]
 	return ok
-}
-
-//Set methods that can be called by each lua script, returning basic functionality
-func (c *luaConn) SetBasicMethods(service string) {
-	c.SetStringFunction("getRemoteAddr", func() string { return c.conn.RemoteAddr().String() }, service)
-	c.SetStringFunction("getLocalAddr", func() string { return c.conn.LocalAddr().String() }, service)
-
-	c.SetStringFunction("getDatetime", func() string {
-		t := time.Now()
-		return fmt.Sprintf("%d-%02d-%02dT%02d:%02d:%02d-00:00\n",
-			t.Year(), t.Month(), t.Day(),
-			t.Hour(), t.Minute(), t.Second())
-	}, service)
-
-	c.SetStringFunction("getFileDownload", func() string {
-		params, _ := c.GetParameters([]string{"url", "path"}, service)
-
-		if err := files.Download(params["url"], params["path"]); err != nil {
-			log.Errorf("error downloading file: %s", err)
-			return "no"
-		}
-		return "yes"
-	}, service)
-
-	c.SetStringFunction("getAbTest", func() string {
-		params, _ := c.GetParameters([]string{"key"}, service)
-
-		val, err := c.abTester.GetForGroup(service, params["key"], -1)
-		if err != nil {
-			return "_" //No response, _ so lua knows it has no ab-test
-		}
-
-		return val
-	}, service)
 }
 
 //Add scripts to a connection for a given service
