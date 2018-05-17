@@ -9,10 +9,7 @@ type ConnectionStruct struct {
 // Handle incoming message string
 // Get all scripts for a given service and pass the string to each script
 func (w *ConnectionStruct) Handle(message string) (string, error) {
-	var result *Result
-	var err error
-
-	result, err = w.MyConn.HandleScripts(w.Service, message)
+	result, err := w.MyConn.HandleScripts(w.Service, message)
 
 	if err != nil {
 		log.Errorf("Error while handling scripts: %s", err)

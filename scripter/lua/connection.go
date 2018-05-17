@@ -99,8 +99,7 @@ func (c *luaConn) SetBasicMethods(service string) {
 	}, service)
 
 	c.SetStringFunction("getFileDownload", func() string {
-		keys := []string{"url", "path"}
-		params, _ := c.GetParameters(keys, service)
+		params, _ := c.GetParameters([]string{"url", "path"}, service)
 
 		if err := files.Download(params["url"], params["path"]); err != nil {
 			log.Errorf("error downloading file: %s", err)
@@ -110,8 +109,7 @@ func (c *luaConn) SetBasicMethods(service string) {
 	}, service)
 
 	c.SetStringFunction("getAbTest", func() string {
-		keys := []string{"key"}
-		params, _ := c.GetParameters(keys, service)
+		params, _ := c.GetParameters([]string{"key"}, service)
 
 		val, err := c.abTester.GetForGroup(service, params["key"], -1)
 		if err != nil {
