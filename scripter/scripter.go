@@ -50,7 +50,7 @@ type ConnectionWrapper interface {
 	SetStringFunction(name string, getString func() string) error
 	SetFloatFunction(name string, getFloat func() float64) error
 	SetVoidFunction(name string, doVoid func()) error
-	GetParameter(index int) (string, error)
+	GetParameters(params []string) (map[string]string, error)
 }
 
 type ScrConn interface {
@@ -58,7 +58,7 @@ type ScrConn interface {
 	SetStringFunction(name string, getString func() string, service string) error
 	SetFloatFunction(name string, getFloat func() float64, service string) error
 	SetVoidFunction(name string, doVoid func(), service string) error
-	GetParameter(index int, service string) (string, error)
+	GetParameters(params []string, service string) (map[string]string, error)
 	HasScripts(service string) bool
 	AddScripts(service string, scripts map[string]string)
 	HandleScripts(service string, message string) (*Result, error)

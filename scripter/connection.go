@@ -41,6 +41,6 @@ func (w *ConnectionStruct) SetVoidFunction(name string, doVoid func()) error {
 }
 
 //Get a parameter from a connection
-func (w *ConnectionStruct) GetParameter(index int) (string, error) {
-	return w.MyConn.GetParameter(index, w.Service)
+func (w *ConnectionStruct) GetParameters(params []string) (map[string]string, error) {
+	return w.MyConn.GetParameters(params, w.Service)
 }

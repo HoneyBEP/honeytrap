@@ -7,6 +7,8 @@ import (
 	"github.com/honeytrap/honeytrap/abtester"
 	"errors"
 	"github.com/honeytrap/honeytrap/scripter"
+	"time"
+	"github.com/honeytrap/honeytrap/utils/files"
 )
 
 // Scripter Connection struct
@@ -63,23 +65,61 @@ func (c *luaConn) SetVoidFunction(name string, doVoid func(), service string) er
 	return nil
 }
 
-// Get the stack parameter from lua to be used in Go functions
-func (c *luaConn) GetParameter(index int, service string) (string, error) {
+// Get the stack parameters from lua to be used in Go functions
+func (c *luaConn) GetParameters(params []string, service string) (map[string]string, error) {
 	for _, script := range c.scripts[service] {
-		if script.GetTop() >= 1 {
-			if parameter := script.CheckString(script.GetTop() + index); parameter != "" {
-				return parameter, nil
+		if script.GetTop() >= len(params) {
+			m := make(map[string]string)
+			for index, param := range params {
+				m[param] = script.CheckString(script.GetTop() - len(params) + index)
 			}
+			return m, nil
 		}
 	}
 
-	return "", fmt.Errorf("%s", "Could not find parameter")
+	return nil, fmt.Errorf("%s", "Could not find parameters")
 }
 
 //Returns if the scripts for a given service are loaded already
 func (c *luaConn) HasScripts(service string) bool {
 	_, ok := c.scripts[service]
 	return ok
+}
+
+//Set methods that can be called by each lua script, returning basic functionality
+func (c *luaConn) SetBasicMethods(service string) {
+	c.SetStringFunction("getRemoteAddr", func() string { return c.conn.RemoteAddr().String() }, service)
+	c.SetStringFunction("getLocalAddr", func() string { return c.conn.LocalAddr().String() }, service)
+
+	c.SetStringFunction("getDatetime", func() string {
+		t := time.Now()
+		return fmt.Sprintf("%d-%02d-%02dT%02d:%02d:%02d-00:00\n",
+			t.Year(), t.Month(), t.Day(),
+			t.Hour(), t.Minute(), t.Second())
+	}, service)
+
+	c.SetStringFunction("getFileDownload", func() string {
+		keys := []string{"url", "path"}
+		params, _ := c.GetParameters(keys, service)
+
+		if err := files.Download(params["url"], params["path"]); err != nil {
+			log.Errorf("error downloading file: %s", err)
+			return "no"
+		}
+		return "yes"
+	}, service)
+
+	c.SetStringFunction("getAbTest", func() string {
+		keys := []string{"key"}
+		params, _ := c.GetParameters(keys, service)
+
+		val, err := c.abTester.GetForGroup(service, params["key"], -1)
+		if err != nil {
+			return "_" //No response, _ so lua knows it has no ab-test
+		}
+
+		return val
+	}, service)
 }
 
 //Add scripts to a connection for a given service
