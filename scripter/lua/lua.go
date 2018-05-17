@@ -2,13 +2,13 @@ package lua
 
 import (
 	"fmt"
+	"github.com/honeytrap/honeytrap/abtester"
 	"github.com/honeytrap/honeytrap/scripter"
 	"github.com/op/go-logging"
 	"github.com/yuin/gopher-lua"
 	"io/ioutil"
 	"net"
 	"strings"
-	"github.com/honeytrap/honeytrap/abtester"
 )
 
 var log = logging.MustGetLogger("scripter/lua")
@@ -31,6 +31,7 @@ func New(name string, options ...func(scripter.Scripter) error) (scripter.Script
 	log.Infof("Using folder: %s", l.Folder)
 	l.scripts = map[string]map[string]string{}
 	l.connections = map[string]*luaConn{}
+	l.canHandleStates = map[string]map[string]*lua.LState{}
 	l.abTester, _ = abtester.Namespace("lua")
 
 	if err := l.abTester.LoadFromFile("scripter/abtests.json"); err != nil {
@@ -50,6 +51,8 @@ type luaScripter struct {
 	scripts map[string]map[string]string
 	//List of connections keyed by 'ip'
 	connections map[string]*luaConn
+	//Lua states to check whether the connection can be handled with the script
+	canHandleStates map[string]map[string]*lua.LState
 
 	abTester abtester.Abtester
 }
@@ -65,32 +68,27 @@ func (l *luaScripter) Init(service string) error {
 
 	// TODO: Load basic lua functions from shared context
 	l.scripts[service] = map[string]string{}
+	l.canHandleStates[service] = map[string]*lua.LState{}
 
 	for _, f := range fileNames {
-		l.scripts[service][f.Name()] = fmt.Sprintf("%s/%s/%s/%s", l.Folder, l.name, service, f.Name())
+		sf := fmt.Sprintf("%s/%s/%s/%s", l.Folder, l.name, service, f.Name())
+		l.scripts[service][f.Name()] = sf
+
+		ls := lua.NewState()
+		ls.DoFile(sf)
+		l.canHandleStates[service][f.Name()] = ls
 	}
 
 	return nil
 }
 
-// Closes the scripter state
-func (l *luaScripter) Close() {
-	l.Close()
-}
-
 //Return a connection for the given ip-address, if no connection exists yet, create it.
 func (l *luaScripter) GetConnection(service string, conn net.Conn) scripter.ConnectionWrapper {
-	s := strings.Split(conn.RemoteAddr().String(), ":")
-	s = s[:len(s)-1]
-	ip := strings.Join(s, ":")
-	var sConn *luaConn
-	var ok bool
+	ip := getConnIP(conn)
 
-	if sConn, ok = l.connections[ip]; !ok {
-		sConn = &luaConn{}
-		sConn.conn = conn
-		sConn.scripts = map[string]map[string]*lua.LState{}
-		sConn.abTester = l.abTester
+	sConn, ok := l.connections[ip]
+	if !ok {
+		sConn = &luaConn{conn, map[string]map[string]*lua.LState{}, l.abTester}
 		l.connections[ip] = sConn
 	}
 
@@ -101,3 +99,23 @@ func (l *luaScripter) GetConnection(service string, conn net.Conn) scripter.Conn
 	return &scripter.ConnectionStruct{Service: service, MyConn: sConn}
 }
 
+// Check whether scripter can handle incoming connection for the peeked message
+// Returns true if there is one script able to handle the connection
+func (l *luaScripter) CanHandle(service string, pMessage string) bool {
+	for _, ls := range l.canHandleStates[service] {
+		canHandle, err := callCanHandle(ls, pMessage)
+		if err != nil {
+			log.Errorf("%s", err)
+		} else if canHandle {
+			return true
+		}
+	}
+
+	return false
+}
+
+func getConnIP(conn net.Conn) string {
+	s := strings.Split(conn.RemoteAddr().String(), ":")
+	s = s[:len(s)-1]
+	return strings.Join(s, ":")
+}

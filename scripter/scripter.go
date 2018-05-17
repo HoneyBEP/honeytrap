@@ -1,13 +1,13 @@
 package scripter
 
 import (
-	"github.com/BurntSushi/toml"
-	"net"
-	"github.com/op/go-logging"
-	"time"
 	"fmt"
-	"github.com/honeytrap/honeytrap/utils/files"
+	"github.com/BurntSushi/toml"
 	"github.com/honeytrap/honeytrap/abtester"
+	"github.com/honeytrap/honeytrap/utils/files"
+	"github.com/op/go-logging"
+	"net"
+	"time"
 )
 
 var (
@@ -41,7 +41,7 @@ type Scripter interface {
 	Init(string) error
 	//SetGlobalFn(name string, fn func() string) error
 	GetConnection(service string, conn net.Conn) ConnectionWrapper
-	Close()
+	CanHandle(service string, message string) bool
 }
 
 //The connectionWrapper interface that implements the basic method that a connection should have
@@ -61,7 +61,7 @@ type ScrConn interface {
 	GetParameters(params []string, service string) (map[string]string, error)
 	HasScripts(service string) bool
 	AddScripts(service string, scripts map[string]string)
-	HandleScripts(service string, message string) (*Result, error)
+	Handle(service string, message string) (*Result, error)
 }
 
 // String result struct

@@ -1,12 +1,12 @@
 package lua
 
 import (
+	"errors"
 	"fmt"
+	"github.com/honeytrap/honeytrap/abtester"
+	"github.com/honeytrap/honeytrap/scripter"
 	"github.com/yuin/gopher-lua"
 	"net"
-	"github.com/honeytrap/honeytrap/abtester"
-	"errors"
-	"github.com/honeytrap/honeytrap/scripter"
 )
 
 // Scripter Connection struct
@@ -86,7 +86,7 @@ func (c *luaConn) HasScripts(service string) bool {
 
 //Add scripts to a connection for a given service
 func (c *luaConn) AddScripts(service string, scripts map[string]string) {
-	_, ok := c.scripts[service]; if !ok {
+	if _, ok := c.scripts[service]; !ok {
 		c.scripts[service] = map[string]*lua.LState{}
 	}
 
@@ -102,9 +102,26 @@ func (c *luaConn) AddScripts(service string, scripts map[string]string) {
 	scripter.SetBasicMethods(c, service)
 }
 
+// Call canHandle Method in Lua state
+func callCanHandle(ls *lua.LState, message string) (bool, error) {
+	// Call method to check canHandle on the message
+	if err := ls.CallByParam(lua.P{
+		Fn:      ls.GetGlobal("canHandle"),
+		NRet:    1,
+		Protect: true,
+	}, lua.LString(message)); err != nil {
+		return false, errors.New(fmt.Sprintf("error calling canHandle method: %s", err))
+	}
+
+	result := ls.ToBool(-1)
+	ls.Pop(1)
+
+	return result, nil
+}
+
 // Run the given script on a given message
 // Return the value that come out of function(message)
-func handleScript(ls *lua.LState, message string) (*scripter.Result, error) {
+func callHandle(ls *lua.LState, message string) (*scripter.Result, error) {
 	// Call method to handle the message
 	if err := ls.CallByParam(lua.P{
 		Fn:      ls.GetGlobal("handle"),
@@ -116,7 +133,7 @@ func handleScript(ls *lua.LState, message string) (*scripter.Result, error) {
 
 	// Get result of the function
 	result := &scripter.Result{
-		Content: ls.Get(-1).String(),
+		Content: ls.ToString(-1),
 	}
 
 	ls.Pop(1)
@@ -124,16 +141,22 @@ func handleScript(ls *lua.LState, message string) (*scripter.Result, error) {
 	return result, nil
 }
 
-func (c *luaConn) HandleScripts(service string, message string) (*scripter.Result, error) {
+func (c *luaConn) Handle(service string, message string) (*scripter.Result, error) {
 	for _, script := range c.scripts[service] {
-		result, err := handleScript(script, message)
+		canHandle, err := callCanHandle(script, message)
+		if err != nil {
+			return nil, err
+		}
+		if !canHandle {
+			continue
+		}
+
+		result, err := callHandle(script, message)
 		if err != nil {
 			return nil, err
 		}
 
-		if result != nil {
-			return result, nil
-		}
+		return result, nil
 	}
 
 	return nil, nil
