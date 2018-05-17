@@ -61,7 +61,12 @@ type ScrConn interface {
 	GetParameter(index int, service string) (string, error)
 	HasScripts(service string) bool
 	AddScripts(service string, scripts map[string]string)
-	HandleScripts(service string, message string) (string, error)
+	HandleScripts(service string, message string) (*Result, error)
+}
+
+// String result struct
+type Result struct {
+	Content string
 }
 
 type ScrAbTester interface {
