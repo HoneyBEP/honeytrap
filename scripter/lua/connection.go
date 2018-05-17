@@ -56,7 +56,7 @@ func (c *luaConn) SetVoidFunction(name string, doVoid func(), service string) er
 	for _, script := range c.scripts[service] {
 		script.Register(name, func(state *lua.LState) int {
 			doVoid()
-			return 1
+			return 0
 		})
 	}
 
