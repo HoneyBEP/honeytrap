@@ -3,7 +3,7 @@ package scripter
 // Connection Wrapper struct
 type ConnectionStruct struct {
 	Service string
-	MyConn    ScrConn
+	MyConn  ScrConn
 }
 
 // Handle incoming message string
