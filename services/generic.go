@@ -32,7 +32,6 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"github.com/honeytrap/honeytrap/pushers"
 	"github.com/honeytrap/honeytrap/scripter"
 	"net"
@@ -73,18 +72,20 @@ func (s *genericService) Handle(ctx context.Context, conn net.Conn) error {
 	connW := s.scr.GetConnection("generic", conn)
 
 	for {
+		//Read message from connection to buffer
 		buf := make([]byte, 4096)
 		n, err := conn.Read(buf)
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("Incoming message is: %s", buf[:n])
+		//Handle incoming message with the scripter
 		response, err := connW.Handle(string(buf[:n]))
 		if err != nil {
 			return err
 		}
 
+		//Write message to the connection
 		if _, err := conn.Write([]byte(response)); err != nil {
 			return err
 		}

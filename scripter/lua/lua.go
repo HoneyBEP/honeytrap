@@ -17,7 +17,7 @@ var (
 	_ = scripter.Register("lua", New)
 )
 
-// Create a lua scripter instance that handles the connection to all lua-scripts
+// New creates a lua scripter instance that handles the connection to all lua-scripts
 // A list where all scripts are stored in is generated
 func New(name string, options ...func(scripter.Scripter) error) (scripter.Scripter, error) {
 	l := &luaScripter{
@@ -57,7 +57,7 @@ type luaScripter struct {
 	abTester abtester.Abtester
 }
 
-// Initialize the scripts from a specific service
+// Init initializes the scripts from a specific service
 // The service name is given and the method will loop over all files in the lua-scripts folder with the given service name
 // All of these scripts are then loaded and stored in the scripts map
 func (l *luaScripter) Init(service string) error {
@@ -75,14 +75,16 @@ func (l *luaScripter) Init(service string) error {
 		l.scripts[service][f.Name()] = sf
 
 		ls := lua.NewState()
-		ls.DoFile(sf)
+		if err := ls.DoFile(sf); err != nil {
+			return err
+		}
 		l.canHandleStates[service][f.Name()] = ls
 	}
 
 	return nil
 }
 
-//Return a connection for the given ip-address, if no connection exists yet, create it.
+//GetConnection returns a connection for the given ip-address, if no connection exists yet, create it.
 func (l *luaScripter) GetConnection(service string, conn net.Conn) scripter.ConnectionWrapper {
 	ip := getConnIP(conn)
 
@@ -96,14 +98,14 @@ func (l *luaScripter) GetConnection(service string, conn net.Conn) scripter.Conn
 		sConn.AddScripts(service, l.scripts[service])
 	}
 
-	return &scripter.ConnectionStruct{Service: service, MyConn: sConn}
+	return &scripter.ConnectionStruct{Service: service, Conn: sConn}
 }
 
-// Check whether scripter can handle incoming connection for the peeked message
+// CanHandle checks whether scripter can handle incoming connection for the peeked message
 // Returns true if there is one script able to handle the connection
-func (l *luaScripter) CanHandle(service string, pMessage string) bool {
+func (l *luaScripter) CanHandle(service string, message string) bool {
 	for _, ls := range l.canHandleStates[service] {
-		canHandle, err := callCanHandle(ls, pMessage)
+		canHandle, err := callCanHandle(ls, message)
 		if err != nil {
 			log.Errorf("%s", err)
 		} else if canHandle {
