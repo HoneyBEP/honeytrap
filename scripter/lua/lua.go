@@ -90,7 +90,7 @@ func (l *luaScripter) GetConnection(service string, conn net.Conn) scripter.Conn
 
 	sConn, ok := l.connections[ip]
 	if !ok {
-		sConn = &luaConn{conn, map[string]map[string]*lua.LState{}, l.abTester}
+		sConn = &luaConn{conn: conn, scripts: map[string]map[string]*lua.LState{}, abTester: l.abTester}
 		l.connections[ip] = sConn
 	}
 
