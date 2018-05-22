@@ -189,6 +189,8 @@ func (l *luaScripter) checkReloadScripts() {
 	hasher := sha1.New()
 	for service, scripts := range l.scripts {
 		isRenewService := false
+
+		// check for edited files
 		for _, script := range scripts {
 			content, err := ioutil.ReadFile(script.source)
 			if err != nil {
@@ -203,9 +205,24 @@ func (l *luaScripter) checkReloadScripts() {
 			}
 		}
 
+		// check for new files
+		fileNames, _ := ioutil.ReadDir(fmt.Sprintf("%s/%s/%s", l.Folder, l.name, service))
+		fileCount := 0
+		for _, f := range fileNames {
+			if !f.IsDir() {
+				fileCount++
+			}
+		}
+		if fileCount != len(scripts) {
+			isRenewService = true
+		}
+
+		// perform reload if needed
 		if isRenewService {
 			if err := l.Init(service); err != nil {
 				log.Errorf("error init service: %s", err)
+			} else {
+				log.Infof("successfully updated lua service: %s", service)
 			}
 		}
 	}
