@@ -13,6 +13,7 @@ import (
 	"time"
 	"crypto/sha1"
 	"encoding/hex"
+	"path/filepath"
 )
 
 var log = logging.MustGetLogger("scripter/lua")
@@ -95,6 +96,10 @@ func (l *luaScripter) Init(service string) error {
 	l.canHandleStates[service] = map[string]*lua.LState{}
 
 	for _, f := range fileNames {
+		if filepath.Ext(f.Name()) == "" {
+			continue
+		}
+
 		sf := fmt.Sprintf("%s/%s/%s/%s", l.Folder, l.name, service, f.Name())
 
 		hash := ""
