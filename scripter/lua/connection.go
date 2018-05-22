@@ -110,7 +110,7 @@ func callCanHandle(ls *lua.LState, message string) (bool, error) {
 		NRet:    1,
 		Protect: true,
 	}, lua.LString(message)); err != nil {
-		return false, fmt.Errorf(fmt.Sprintf("error calling canHandle method: %s", err))
+		return false, fmt.Errorf("error calling canHandle method: %s", err)
 	}
 
 	result := ls.ToBool(-1)
@@ -128,7 +128,7 @@ func callHandle(ls *lua.LState, message string) (*scripter.Result, error) {
 		NRet:    1,
 		Protect: true,
 	}, lua.LString(message)); err != nil {
-		return nil, fmt.Errorf(fmt.Sprintf("error calling handle method:%s", err))
+		return nil, fmt.Errorf("error calling handle method: %s", err)
 	}
 
 	// Get result of the function
@@ -141,6 +141,7 @@ func callHandle(ls *lua.LState, message string) (*scripter.Result, error) {
 	return result, nil
 }
 
+// Handle calls the handle method on the lua state with the message as the argument
 func (c *luaConn) Handle(service string, message string) (*scripter.Result, error) {
 	for _, script := range c.scripts[service] {
 		canHandle, err := callCanHandle(script, message)
