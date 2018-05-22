@@ -149,7 +149,7 @@ func (l *luaScripter) CanHandle(service string, message string) bool {
 	return false
 }
 
-// getConnIP retrieves the IP fron a connection's remote address
+// getConnIP retrieves the IP from a connection's remote address
 func getConnIP(conn net.Conn) string {
 	s := strings.Split(conn.RemoteAddr().String(), ":")
 	s = s[:len(s)-1]
@@ -190,7 +190,7 @@ func (l *luaScripter) checkReloadScripts() {
 	for service, scripts := range l.scripts {
 		isRenewService := false
 		for _, script := range scripts {
-			content, err := ioutil.ReadFile(script.source);
+			content, err := ioutil.ReadFile(script.source)
 			if err != nil {
 				continue
 			}
@@ -204,7 +204,9 @@ func (l *luaScripter) checkReloadScripts() {
 		}
 
 		if isRenewService {
-			l.Init(service)
+			if err := l.Init(service); err != nil {
+				log.Errorf("error init service: %s", err)
+			}
 		}
 	}
 }
