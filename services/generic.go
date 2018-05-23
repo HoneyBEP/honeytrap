@@ -35,6 +35,7 @@ import (
 	"github.com/honeytrap/honeytrap/pushers"
 	"github.com/honeytrap/honeytrap/scripter"
 	"net"
+	"github.com/honeytrap/honeytrap/utils"
 )
 
 var (
@@ -69,21 +70,30 @@ func (s *genericService) SetChannel(c pushers.Channel) {
 }
 
 func (s *genericService) Handle(ctx context.Context, conn net.Conn) error {
-	connW := s.scr.GetConnection("generic", conn)
+	buffer := make([]byte, 4096)
+	pConn := utils.PeekConnection(conn)
+	n, _ := pConn.Peek(buffer)
+
+	connW := s.scr.GetConnection("generic", pConn, s.c)
 
 	for {
-		//Read message from connection to buffer
-		buf := make([]byte, 4096)
-		n, err := conn.Read(buf)
+		////Read message from connection to buffer
+		//buf := make([]byte, 4096)
+		//_, err := conn.Read(buf)
+		//if err != nil || connW {
+		//	return err
+		//}
+
+		//Handle incoming message with the scripter
+		response, err := connW.Handle(string(buffer[:n]))
 		if err != nil {
 			return err
 		}
 
-		//Handle incoming message with the scripter
-		response, err := connW.Handle(string(buf[:n]))
-		if err != nil {
-			return err
+		if response == "_return" {
+			return nil
 		}
+
 
 		//Write message to the connection
 		if _, err := conn.Write([]byte(response)); err != nil {

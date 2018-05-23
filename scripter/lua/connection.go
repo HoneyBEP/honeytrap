@@ -6,6 +6,7 @@ import (
 	"github.com/honeytrap/honeytrap/scripter"
 	"github.com/yuin/gopher-lua"
 	"net"
+	"github.com/honeytrap/honeytrap/pushers"
 )
 
 // Scripter Connection struct
@@ -16,6 +17,8 @@ type luaConn struct {
 	scripts map[string]map[string]*lua.LState
 
 	abTester abtester.Abtester
+
+	channel  pushers.Channel
 }
 
 //GetConn returns the connection for the srcConn
@@ -161,4 +164,8 @@ func (c *luaConn) Handle(service string, message string) (*scripter.Result, erro
 	}
 
 	return nil, nil
+}
+
+func (c *luaConn) GetChannel() pushers.Channel {
+	return c.channel
 }

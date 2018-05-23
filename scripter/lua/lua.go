@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net"
 	"strings"
+	"github.com/honeytrap/honeytrap/pushers"
 )
 
 var log = logging.MustGetLogger("scripter/lua")
@@ -85,12 +86,17 @@ func (l *luaScripter) Init(service string) error {
 }
 
 //GetConnection returns a connection for the given ip-address, if no connection exists yet, create it.
-func (l *luaScripter) GetConnection(service string, conn net.Conn) scripter.ConnectionWrapper {
+func (l *luaScripter) GetConnection(service string, conn net.Conn, channel pushers.Channel) scripter.ConnectionWrapper {
 	ip := getConnIP(conn)
 
 	sConn, ok := l.connections[ip]
 	if !ok {
-		sConn = &luaConn{conn: conn, scripts: map[string]map[string]*lua.LState{}, abTester: l.abTester}
+		sConn = &luaConn{
+			conn: conn,
+			scripts: map[string]map[string]*lua.LState{},
+			abTester: l.abTester,
+			channel: channel,
+		}
 		l.connections[ip] = sConn
 	}
 

@@ -8,6 +8,12 @@ import (
 	"github.com/op/go-logging"
 	"net"
 	"time"
+	"net/http"
+	"bufio"
+	"io"
+	"encoding/json"
+	"github.com/honeytrap/honeytrap/pushers"
+	"github.com/honeytrap/honeytrap/event"
 )
 
 var (
@@ -43,7 +49,7 @@ func GetAvailableScripterNames() []string {
 type Scripter interface {
 	Init(string) error
 	//SetGlobalFn(name string, fn func() string) error
-	GetConnection(service string, conn net.Conn) ConnectionWrapper
+	GetConnection(service string, conn net.Conn, channel pushers.Channel) ConnectionWrapper
 	CanHandle(service string, message string) bool
 }
 
@@ -66,6 +72,7 @@ type ScrConn interface {
 	HasScripts(service string) bool
 	AddScripts(service string, scripts map[string]string)
 	Handle(service string, message string) (*Result, error)
+	GetChannel() pushers.Channel
 }
 
 //Result struct which allows the result to be a string, an empty string and a nil value
@@ -152,5 +159,62 @@ func SetBasicMethods(c ScrConn, service string) {
 		if logType == "warning" {
 			log.Warning(message)
 		}
+	}, service)
+
+	c.SetStringFunction("getRequest", func() string {
+		params, _ := c.GetParameters([]string{"withBody"}, service)
+		br := bufio.NewReader(c.GetConn())
+
+		req, err := http.ReadRequest(br)
+		if err == io.EOF {
+			log.Errorf("Payload is empty.", err)
+			return ""
+		} else if err != nil {
+			log.Errorf("Failed to parse payload to HTTP Request, Error: %s", err)
+			return ""
+		}
+
+		m := map[string]interface{}{}
+		m["method"] = req.Method
+		m["header"] = req.Header
+		m["host"] = req.Host
+		m["form"] = req.Form
+		body := make([]byte, 1024)
+		if params["withBody"] == "1" {
+
+			defer req.Body.Close()
+			n, _ := req.Body.Read(body)
+
+			body = body[:n]
+			var js2 map[string]interface{}
+			if json.Unmarshal([]byte(body), &js2) == nil {
+				m["body"] = js2
+			} else {
+				m["body"] = string(body)
+			}
+			log.Info("%s", body)
+		}
+
+		result, err := json.Marshal(m)
+		if err != nil {
+			log.Errorf("Failed to parse request struct to json, Error: %s", err)
+			return "{}"
+		}
+
+		return string(result)
+	}, service)
+
+	c.SetVoidFunction("send", func() {
+		params, _ := c.GetParameters([]string{"data"}, service)
+		var data map[string]interface{}
+
+		json.Unmarshal([]byte(params["data"]), &data)
+
+		message := event.New()
+		for key, value := range data {
+			event.Custom(key, value)(message)
+		}
+
+		c.GetChannel().Send(message)
 	}, service)
 }
