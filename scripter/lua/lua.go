@@ -104,6 +104,8 @@ func (l *luaScripter) GetConnection(service string, conn net.Conn) scripter.Conn
 			abTester: l.abTester,
 		}
 		l.connections[ip] = sConn
+	} else {
+		sConn.conn = conn
 	}
 
 	if !sConn.HasScripts(service) {

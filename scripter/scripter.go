@@ -14,9 +14,9 @@ import (
 	"encoding/json"
 	"github.com/honeytrap/honeytrap/pushers"
 	"github.com/honeytrap/honeytrap/event"
-	"io/ioutil"
 	"bytes"
 	"strconv"
+	"io/ioutil"
 )
 
 var (
@@ -222,7 +222,7 @@ func SetBasicMethods(s Scripter, c ScrConn, service string) {
 	}, service)
 
 	c.SetVoidFunction("restWrite", func() {
-		params, _ := c.GetParameters([]string{"status", "response"}, service)
+		params, _ := c.GetParameters([]string{"status", "response", "headers"}, service)
 
 		status, _ := strconv.Atoi(params["status"])
 		buf := c.GetConnectionBuffer()
@@ -238,6 +238,18 @@ func SetBasicMethods(s Scripter, c ScrConn, service string) {
 
 		defer req.Body.Close()
 
+		header := http.Header{}
+
+		header.Set("date", (time.Now()).String())
+		header.Set("connection", "Keep-Alive")
+		header.Set("content-type", "application/json")
+
+		var headers map[string]string
+		json.Unmarshal([]byte(params["data"]), &headers)
+		for name, value := range headers {
+			header.Set(name, value)
+		}
+
 		resp := http.Response{
 			StatusCode: status,
 			Status:     http.StatusText(status),
@@ -245,9 +257,7 @@ func SetBasicMethods(s Scripter, c ScrConn, service string) {
 			ProtoMajor: req.ProtoMajor,
 			ProtoMinor: req.ProtoMinor,
 			Request:    req,
-			Header: http.Header{
-				"Server": []string{`toml:"server"`},
-			},
+			Header: header,
 			Body:          ioutil.NopCloser(bytes.NewBufferString(params["response"])),
 			ContentLength: int64(len(params["response"])),
 		}
