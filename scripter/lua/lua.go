@@ -41,7 +41,7 @@ func New(name string, options ...scripter.ScripterFunc) (scripter.Scripter, erro
 		return nil, err
 	}
 
-	scripter.SetScriptInterval(l)
+	scripter.SetScriptInterval(l, 30)
 
 	return l, nil
 }

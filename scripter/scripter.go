@@ -184,11 +184,11 @@ func SetBasicMethods(c ScrConn, service string) {
 }
 
 // setScriptInterval sets the interval of checking whether scripts have been changed
-func SetScriptInterval(s Scripter) {
+func SetScriptInterval(s Scripter, i time.Duration) {
 
 	// How often to fire the passed in function
 	// in milliseconds
-	interval := 10 * time.Second
+	interval := i * time.Second
 
 	// Setup the ticket and the channel to signal
 	// the ending of the interval
