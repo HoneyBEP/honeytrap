@@ -8,9 +8,11 @@ import (
 	"github.com/op/go-logging"
 	"net"
 	"time"
-	"encoding/hex"
 	"io/ioutil"
-	"crypto/sha1"
+	"sort"
+	"reflect"
+	"os"
+	"github.com/honeytrap/honeytrap/utils/crypto"
 )
 
 var (
@@ -198,39 +200,30 @@ func SetScriptInterval(s Scripter) {
 
 // checkReloadScripts initializes services again when scripts have been changed within the service
 func checkReloadScripts(s Scripter) {
-	hasher := sha1.New()
 	for service, scripts := range s.GetScripts() {
-		isRenewService := false
-
-		// check for edited files
-		for _, script := range scripts {
-			content, err := ioutil.ReadFile(script.Source)
-			if err != nil {
+		// retrieve hashes from current files
+		fileNames, _ := ioutil.ReadDir(fmt.Sprintf("%s/%s", s.GetScriptFolder(), service))
+		var newHashes []string
+		var oldHashes []string
+		for _, f := range fileNames {
+			if f.IsDir() {
 				continue
 			}
-			hasher.Reset()
-			hasher.Write(content)
-			hash := hex.EncodeToString(hasher.Sum(nil))
-			if script.Hash != hash {
-				isRenewService = true
-				script.Hash = hash
+			if fileStat, err := os.Stat(fmt.Sprintf("%s/%s/%s", s.GetScriptFolder(), service, f.Name())); err == nil {
+				newHashes = append(newHashes, crypto.SHA1([]byte(fmt.Sprintf("%d%s", fileStat.Size(), fileStat.ModTime()))))
 			}
 		}
 
-		// check for new files
-		fileNames, _ := ioutil.ReadDir(fmt.Sprintf("%s/%s", s.GetScriptFolder(), service))
-		fileCount := 0
-		for _, f := range fileNames {
-			if !f.IsDir() {
-				fileCount++
-			}
-		}
-		if fileCount != len(scripts) {
-			isRenewService = true
+		// retrieve hashes from old files
+		for _, script := range scripts {
+			oldHashes = append(oldHashes, script.Hash)
 		}
 
-		// perform reload if needed
-		if isRenewService {
+		sort.Strings(newHashes)
+		sort.Strings(oldHashes)
+
+		// perform reloaded when needed
+		if !reflect.DeepEqual(newHashes, oldHashes) {
 			if err := s.Init(service); err != nil {
 				log.Errorf("error init service: %s", err)
 			} else {
