@@ -10,8 +10,8 @@ import (
 	"net"
 	"strings"
 	"github.com/honeytrap/honeytrap/pushers"
-	"crypto/sha1"
-	"encoding/hex"
+	"os"
+	"github.com/honeytrap/honeytrap/utils/crypto"
 )
 
 var log = logging.MustGetLogger("scripter/lua")
@@ -79,8 +79,6 @@ func (l *luaScripter) Init(service string) error {
 	}
 
 	// TODO: Load basic lua functions from shared context
-	hasher := sha1.New()
-
 	l.connections = map[string]*luaConn{}
 	l.scripts[service] = map[string]*scripter.Script{}
 	l.canHandleStates[service] = map[string]*lua.LState{}
@@ -93,11 +91,8 @@ func (l *luaScripter) Init(service string) error {
 		sf := fmt.Sprintf("%s/%s/%s/%s", l.Folder, l.name, service, f.Name())
 
 		hash := ""
-		content, err := ioutil.ReadFile(sf)
-		if err == nil {
-			hasher.Reset()
-			hasher.Write(content)
-			hash = hex.EncodeToString(hasher.Sum(nil))
+		if fileStat, err := os.Stat(sf); err == nil {
+			hash = crypto.SHA1([]byte(fmt.Sprintf("%d%s", fileStat.Size(), fileStat.ModTime())))
 		}
 
 		l.scripts[service][f.Name()] = &scripter.Script{hash, sf}
