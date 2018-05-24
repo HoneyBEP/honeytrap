@@ -111,8 +111,8 @@ func (l *luaScripter) GetConnection(service string, conn net.Conn) scripter.Conn
 
 	if !sConn.HasScripts(service) {
 		scripts := make(map[string]string)
-		for k, v := range l.scripts[service] {
-			scripts[k] = v.Source
+		for name, script := range l.scripts[service] {
+			scripts[name] = script.Source
 		}
 		sConn.AddScripts(service, scripts)
 	}
