@@ -131,7 +131,7 @@ func Cookies(cookies []*http.Cookie) event.Option {
 }
 
 func (s *httpService) Handle(ctx context.Context, conn net.Conn) error {
-	sConn := s.scr.GetConnection("http", conn, s.c)
+	sConn := s.scr.GetConnection("http", conn)
 	for {
 		br := bufio.NewReader(conn)
 

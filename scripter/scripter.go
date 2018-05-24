@@ -14,21 +14,26 @@ import (
 	"encoding/json"
 	"github.com/honeytrap/honeytrap/pushers"
 	"github.com/honeytrap/honeytrap/event"
+	"io/ioutil"
+	"bytes"
+	"strconv"
 )
 
 var (
-	scripters = map[string]func(string, ...func(Scripter) error) (Scripter, error){}
+	scripters = map[string]func(string, ...ScripterFunc) (Scripter, error){}
 )
 var log = logging.MustGetLogger("scripter")
 
 //Register the scripter instance
-func Register(key string, fn func(string, ...func(Scripter) error) (Scripter, error)) func(string, ...func(Scripter) error) (Scripter, error) {
+func Register(key string, fn func(string, ...ScripterFunc) (Scripter, error)) func(string, ...ScripterFunc) (Scripter, error) {
 	scripters[key] = fn
 	return fn
 }
 
+type ScripterFunc func(Scripter) error
+
 //Get a scripter instance
-func Get(key string) (func(string, ...func(Scripter) error) (Scripter, error), bool) {
+func Get(key string) (func(string, ...ScripterFunc) (Scripter, error), bool) {
 	if fn, ok := scripters[key]; ok {
 		return fn, true
 	}
@@ -45,12 +50,20 @@ func GetAvailableScripterNames() []string {
 	return out
 }
 
+func WithChannel(eb pushers.Channel) ScripterFunc {
+	return func(s Scripter) error {
+		s.SetChannel(eb)
+		return nil
+	}
+}
+
 //Scripter interface that implements basic scripter methods
 type Scripter interface {
 	Init(string) error
-	//SetGlobalFn(name string, fn func() string) error
-	GetConnection(service string, conn net.Conn, channel pushers.Channel) ConnectionWrapper
+	GetConnection(service string, conn net.Conn) ConnectionWrapper
 	CanHandle(service string, message string) bool
+	SetChannel(c pushers.Channel)
+	GetChannel() pushers.Channel
 }
 
 //ConnectionWrapper interface that implements the basic method that a connection should have
@@ -72,7 +85,7 @@ type ScrConn interface {
 	HasScripts(service string) bool
 	AddScripts(service string, scripts map[string]string)
 	Handle(service string, message string) (*Result, error)
-	GetChannel() pushers.Channel
+	GetConnectionBuffer() *bytes.Buffer
 }
 
 //Result struct which allows the result to be a string, an empty string and a nil value
@@ -87,14 +100,14 @@ type ScrAbTester interface {
 }
 
 //WithConfig returns a function to attach the config to the scripter
-func WithConfig(c toml.Primitive) func(Scripter) error {
+func WithConfig(c toml.Primitive) ScripterFunc {
 	return func(scr Scripter) error {
 		return toml.PrimitiveDecode(c, scr)
 	}
 }
 
 //SetBasicMethods sets methods that can be called by each script, returning basic functionality
-func SetBasicMethods(c ScrConn, service string) {
+func SetBasicMethods(s Scripter, c ScrConn, service string) {
 	c.SetStringFunction("getRemoteAddr", func() string { return c.GetConn().RemoteAddr().String() }, service)
 	c.SetStringFunction("getLocalAddr", func() string { return c.GetConn().LocalAddr().String() }, service)
 
@@ -163,11 +176,16 @@ func SetBasicMethods(c ScrConn, service string) {
 
 	c.SetStringFunction("getRequest", func() string {
 		params, _ := c.GetParameters([]string{"withBody"}, service)
-		br := bufio.NewReader(c.GetConn())
+
+		buf := c.GetConnectionBuffer()
+		buf.Reset()
+		tee := io.TeeReader(c.GetConn(), buf)
+
+		br := bufio.NewReader(tee)
 
 		req, err := http.ReadRequest(br)
 		if err == io.EOF {
-			log.Errorf("Payload is empty.", err)
+			log.Infof("Payload is empty.", err)
 			return ""
 		} else if err != nil {
 			log.Errorf("Failed to parse payload to HTTP Request, Error: %s", err)
@@ -192,7 +210,6 @@ func SetBasicMethods(c ScrConn, service string) {
 			} else {
 				m["body"] = string(body)
 			}
-			log.Info("%s", body)
 		}
 
 		result, err := json.Marshal(m)
@@ -204,7 +221,43 @@ func SetBasicMethods(c ScrConn, service string) {
 		return string(result)
 	}, service)
 
-	c.SetVoidFunction("send", func() {
+	c.SetVoidFunction("restWrite", func() {
+		params, _ := c.GetParameters([]string{"status", "response"}, service)
+
+		status, _ := strconv.Atoi(params["status"])
+		buf := c.GetConnectionBuffer()
+		br := bufio.NewReader(buf)
+
+		req, err := http.ReadRequest(br)
+		if err == io.EOF {
+			return
+		} else if err != nil {
+			log.Errorf("Error while reading buffered request connection, %s", err)
+			return
+		}
+
+		defer req.Body.Close()
+
+		resp := http.Response{
+			StatusCode: status,
+			Status:     http.StatusText(status),
+			Proto:      req.Proto,
+			ProtoMajor: req.ProtoMajor,
+			ProtoMinor: req.ProtoMinor,
+			Request:    req,
+			Header: http.Header{
+				"Server": []string{`toml:"server"`},
+			},
+			Body:          ioutil.NopCloser(bytes.NewBufferString(params["response"])),
+			ContentLength: int64(len(params["response"])),
+		}
+
+		if err := resp.Write(c.GetConn()); err != nil {
+			log.Errorf("Writing of scripter - REST message was not successful, %s", err)
+		}
+	}, service)
+
+	c.SetVoidFunction("channelSend", func() {
 		params, _ := c.GetParameters([]string{"data"}, service)
 		var data map[string]interface{}
 
@@ -215,6 +268,6 @@ func SetBasicMethods(c ScrConn, service string) {
 			event.Custom(key, value)(message)
 		}
 
-		c.GetChannel().Send(message)
+		s.GetChannel().Send(message)
 	}, service)
 }

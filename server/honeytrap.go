@@ -454,6 +454,7 @@ func (hc *Honeytrap) Run(ctx context.Context) {
 		} else if scr, err := scripterFunc(
 			key,
 			scripter.WithConfig(s),
+			scripter.WithChannel(hc.bus),
 		); err != nil {
 			log.Fatalf("Error initializing scripter %s(%s): %s", key, x.Type, err)
 		} else {

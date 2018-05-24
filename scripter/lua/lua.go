@@ -20,7 +20,7 @@ var (
 
 // New creates a lua scripter instance that handles the connection to all lua-scripts
 // A list where all scripts are stored in is generated
-func New(name string, options ...func(scripter.Scripter) error) (scripter.Scripter, error) {
+func New(name string, options ...scripter.ScripterFunc) (scripter.Scripter, error) {
 	l := &luaScripter{
 		name: name,
 	}
@@ -56,6 +56,13 @@ type luaScripter struct {
 	canHandleStates map[string]map[string]*lua.LState
 
 	abTester abtester.Abtester
+
+	c pushers.Channel
+}
+
+//Set the channel over which messages to the log and elasticsearch can be set
+func (l *luaScripter) SetChannel(c pushers.Channel) {
+	l.c = c
 }
 
 // Init initializes the scripts from a specific service
@@ -86,7 +93,7 @@ func (l *luaScripter) Init(service string) error {
 }
 
 //GetConnection returns a connection for the given ip-address, if no connection exists yet, create it.
-func (l *luaScripter) GetConnection(service string, conn net.Conn, channel pushers.Channel) scripter.ConnectionWrapper {
+func (l *luaScripter) GetConnection(service string, conn net.Conn) scripter.ConnectionWrapper {
 	ip := getConnIP(conn)
 
 	sConn, ok := l.connections[ip]
@@ -95,13 +102,13 @@ func (l *luaScripter) GetConnection(service string, conn net.Conn, channel pushe
 			conn: conn,
 			scripts: map[string]map[string]*lua.LState{},
 			abTester: l.abTester,
-			channel: channel,
 		}
 		l.connections[ip] = sConn
 	}
 
 	if !sConn.HasScripts(service) {
 		sConn.AddScripts(service, l.scripts[service])
+		scripter.SetBasicMethods(l, sConn, service)
 	}
 
 	return &scripter.ConnectionStruct{Service: service, Conn: sConn}
@@ -120,6 +127,11 @@ func (l *luaScripter) CanHandle(service string, message string) bool {
 	}
 
 	return false
+}
+
+// Get the channel object
+func (l *luaScripter) GetChannel() pushers.Channel {
+	return l.c
 }
 
 func getConnIP(conn net.Conn) string {

@@ -74,7 +74,7 @@ func (s *genericService) Handle(ctx context.Context, conn net.Conn) error {
 	pConn := utils.PeekConnection(conn)
 	n, _ := pConn.Peek(buffer)
 
-	connW := s.scr.GetConnection("generic", pConn, s.c)
+	connW := s.scr.GetConnection("generic", pConn)
 
 	for {
 		////Read message from connection to buffer
@@ -93,7 +93,6 @@ func (s *genericService) Handle(ctx context.Context, conn net.Conn) error {
 		if response == "_return" {
 			return nil
 		}
-
 
 		//Write message to the connection
 		if _, err := conn.Write([]byte(response)); err != nil {
