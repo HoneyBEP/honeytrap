@@ -8,6 +8,9 @@ import (
 	"github.com/op/go-logging"
 	"net"
 	"time"
+	"encoding/hex"
+	"io/ioutil"
+	"crypto/sha1"
 )
 
 var (
@@ -45,6 +48,8 @@ type Scripter interface {
 	//SetGlobalFn(name string, fn func() string) error
 	GetConnection(service string, conn net.Conn) ConnectionWrapper
 	CanHandle(service string, message string) bool
+	GetScripts() map[string]map[string]*Script
+	GetScriptFolder() string
 }
 
 //ConnectionWrapper interface that implements the basic method that a connection should have
@@ -72,6 +77,14 @@ type ScrConn interface {
 //The nil value can be used to indicate that lua has no value to return
 type Result struct {
 	Content string
+}
+
+type Script struct {
+	// hash of the file
+	Hash string
+
+	// source of the states, initialized per connection: directory/scriptname
+	Source string
 }
 
 //ScrAbTester exposes methods to interact with the AbTester
@@ -153,4 +166,76 @@ func SetBasicMethods(c ScrConn, service string) {
 			log.Warning(message)
 		}
 	}, service)
+}
+
+// setScriptInterval sets the interval of checking whether scripts have been changed
+func SetScriptInterval(s Scripter) {
+
+	// How often to fire the passed in function
+	// in milliseconds
+	interval := 10 * time.Second
+
+	// Setup the ticket and the channel to signal
+	// the ending of the interval
+	ticker := time.NewTicker(interval)
+	quit := make(chan struct{})
+
+	// Put the selection in a go routine
+	// so that the for loop is none blocking
+	go func() {
+		for {
+			select {
+			case <- ticker.C:
+				go checkReloadScripts(s)
+			case <- quit:
+				ticker.Stop()
+				return
+			}
+
+		}
+	}()
+}
+
+// checkReloadScripts initializes services again when scripts have been changed within the service
+func checkReloadScripts(s Scripter) {
+	hasher := sha1.New()
+	for service, scripts := range s.GetScripts() {
+		isRenewService := false
+
+		// check for edited files
+		for _, script := range scripts {
+			content, err := ioutil.ReadFile(script.Source)
+			if err != nil {
+				continue
+			}
+			hasher.Reset()
+			hasher.Write(content)
+			hash := hex.EncodeToString(hasher.Sum(nil))
+			if script.Hash != hash {
+				isRenewService = true
+				script.Hash = hash
+			}
+		}
+
+		// check for new files
+		fileNames, _ := ioutil.ReadDir(fmt.Sprintf("%s/%s", s.GetScriptFolder(), service))
+		fileCount := 0
+		for _, f := range fileNames {
+			if !f.IsDir() {
+				fileCount++
+			}
+		}
+		if fileCount != len(scripts) {
+			isRenewService = true
+		}
+
+		// perform reload if needed
+		if isRenewService {
+			if err := s.Init(service); err != nil {
+				log.Errorf("error init service: %s", err)
+			} else {
+				log.Infof("successfully updated service: %s", service)
+			}
+		}
+	}
 }

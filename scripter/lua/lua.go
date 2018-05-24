@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"net"
 	"strings"
-	"time"
 	"crypto/sha1"
 	"encoding/hex"
 )
@@ -32,7 +31,7 @@ func New(name string, options ...func(scripter.Scripter) error) (scripter.Script
 	}
 
 	log.Infof("Using folder: %s", l.Folder)
-	l.scripts = map[string]map[string]*luaScript{}
+	l.scripts = map[string]map[string]*scripter.Script{}
 	l.connections = map[string]*luaConn{}
 	l.canHandleStates = map[string]map[string]*lua.LState{}
 	l.abTester, _ = abtester.Namespace("lua")
@@ -41,7 +40,7 @@ func New(name string, options ...func(scripter.Scripter) error) (scripter.Script
 		return nil, err
 	}
 
-	l.setScriptInterval()
+	scripter.SetScriptInterval(l)
 
 	return l, nil
 }
@@ -53,21 +52,13 @@ type luaScripter struct {
 	Folder string `toml:"folder"`
 
 	//Source of the states, initialized per connection: directory/scriptname
-	scripts map[string]map[string]*luaScript
+	scripts map[string]map[string]*scripter.Script
 	//List of connections keyed by 'ip'
 	connections map[string]*luaConn
 	//Lua states to check whether the connection can be handled with the script
 	canHandleStates map[string]map[string]*lua.LState
 
 	abTester abtester.Abtester
-}
-
-type luaScript struct {
-	// hash of the file
-	hash string
-
-	// source of the states, initialized per connection: directory/scriptname
-	source string
 }
 
 // Init initializes the scripts from a specific service
@@ -83,7 +74,7 @@ func (l *luaScripter) Init(service string) error {
 	hasher := sha1.New()
 
 	l.connections = map[string]*luaConn{}
-	l.scripts[service] = map[string]*luaScript{}
+	l.scripts[service] = map[string]*scripter.Script{}
 	l.canHandleStates[service] = map[string]*lua.LState{}
 
 	for _, f := range fileNames {
@@ -101,7 +92,7 @@ func (l *luaScripter) Init(service string) error {
 			hash = hex.EncodeToString(hasher.Sum(nil))
 		}
 
-		l.scripts[service][f.Name()] = &luaScript{hash, sf}
+		l.scripts[service][f.Name()] = &scripter.Script{hash, sf}
 
 		ls := lua.NewState()
 		if err := ls.DoFile(sf); err != nil {
@@ -126,7 +117,7 @@ func (l *luaScripter) GetConnection(service string, conn net.Conn) scripter.Conn
 	if !sConn.HasScripts(service) {
 		scripts := make(map[string]string)
 		for k, v := range l.scripts[service] {
-			scripts[k] = v.source
+			scripts[k] = v.Source
 		}
 		sConn.AddScripts(service, scripts)
 	}
@@ -149,81 +140,19 @@ func (l *luaScripter) CanHandle(service string, message string) bool {
 	return false
 }
 
+// GetScripts return the scripts for this scripter
+func (l *luaScripter) GetScripts() map[string]map[string]*scripter.Script {
+	return l.scripts
+}
+
+// GetScriptFolder return the folder where the scripts are located for this scripter
+func (l *luaScripter) GetScriptFolder() string {
+	return fmt.Sprintf("%s/%s", l.Folder, l.name)
+}
+
 // getConnIP retrieves the IP from a connection's remote address
 func getConnIP(conn net.Conn) string {
 	s := strings.Split(conn.RemoteAddr().String(), ":")
 	s = s[:len(s)-1]
 	return strings.Join(s, ":")
-}
-
-// setScriptInterval sets the interval of checking whether scripts have been changed
-func (l *luaScripter) setScriptInterval() {
-
-	// How often to fire the passed in function
-	// in milliseconds
-	interval := 10 * time.Second
-
-	// Setup the ticket and the channel to signal
-	// the ending of the interval
-	ticker := time.NewTicker(interval)
-	quit := make(chan struct{})
-
-	// Put the selection in a go routine
-	// so that the for loop is none blocking
-	go func() {
-		for {
-			select {
-			case <- ticker.C:
-				go l.checkReloadScripts()
-			case <- quit:
-				ticker.Stop()
-				return
-			}
-
-		}
-	}()
-}
-
-// checkReloadScripts initializes services again when scripts have been changed within the service
-func (l *luaScripter) checkReloadScripts() {
-	hasher := sha1.New()
-	for service, scripts := range l.scripts {
-		isRenewService := false
-
-		// check for edited files
-		for _, script := range scripts {
-			content, err := ioutil.ReadFile(script.source)
-			if err != nil {
-				continue
-			}
-			hasher.Reset()
-			hasher.Write(content)
-			hash := hex.EncodeToString(hasher.Sum(nil))
-			if script.hash != hash {
-				isRenewService = true
-				script.hash = hash
-			}
-		}
-
-		// check for new files
-		fileNames, _ := ioutil.ReadDir(fmt.Sprintf("%s/%s/%s", l.Folder, l.name, service))
-		fileCount := 0
-		for _, f := range fileNames {
-			if !f.IsDir() {
-				fileCount++
-			}
-		}
-		if fileCount != len(scripts) {
-			isRenewService = true
-		}
-
-		// perform reload if needed
-		if isRenewService {
-			if err := l.Init(service); err != nil {
-				log.Errorf("error init service: %s", err)
-			} else {
-				log.Infof("successfully updated lua service: %s", service)
-			}
-		}
-	}
 }
