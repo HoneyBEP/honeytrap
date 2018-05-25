@@ -40,8 +40,6 @@ func New(name string, options ...func(scripter.Scripter) error) (scripter.Script
 		return nil, err
 	}
 
-	scripter.SetScriptInterval(l, 30)
-
 	return l, nil
 }
 
