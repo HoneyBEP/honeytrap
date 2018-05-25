@@ -55,7 +55,7 @@ const (
 type connection struct {
 	ws *websocket.Conn
 
-	web *web
+	web *Web
 
 	send chan json.Marshaler
 }
@@ -77,6 +77,8 @@ func (c *connection) readPump() {
 
 			break
 		}
+
+		c.web.handleRequest(message)
 
 		_ = message
 	}

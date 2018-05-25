@@ -211,6 +211,17 @@ func SetScriptInterval(s Scripter, i time.Duration) {
 	}()
 }
 
+// ReloadScripts reloads the scripts from the scripter
+func ReloadScripts(s Scripter) {
+	for service := range s.GetScripts() {
+		if err := s.Init(service); err != nil {
+			log.Errorf("error init service: %s", err)
+		} else {
+			log.Infof("successfully updated service: %s", service)
+		}
+	}
+}
+
 // checkReloadScripts initializes services again when scripts have been changed within the service
 func checkReloadScripts(s Scripter) {
 	for service, scripts := range s.GetScripts() {
