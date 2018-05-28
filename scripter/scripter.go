@@ -8,15 +8,10 @@ import (
 	"github.com/op/go-logging"
 	"net"
 	"time"
-	"net/http"
-	"bufio"
-	"io"
 	"encoding/json"
 	"github.com/honeytrap/honeytrap/pushers"
 	"github.com/honeytrap/honeytrap/event"
 	"bytes"
-	"strconv"
-	"io/ioutil"
 )
 
 var (
@@ -68,6 +63,7 @@ type Scripter interface {
 
 //ConnectionWrapper interface that implements the basic method that a connection should have
 type ConnectionWrapper interface {
+	GetScrConn() ScrConn
 	Handle(message string) (string, error)
 	SetStringFunction(name string, getString func() string) error
 	SetFloatFunction(name string, getFloat func() float64) error
@@ -171,99 +167,6 @@ func SetBasicMethods(s Scripter, c ScrConn, service string) {
 		}
 		if logType == "warning" {
 			log.Warning(message)
-		}
-	}, service)
-
-	c.SetStringFunction("getRequest", func() string {
-		params, _ := c.GetParameters([]string{"withBody"}, service)
-
-		buf := c.GetConnectionBuffer()
-		buf.Reset()
-		tee := io.TeeReader(c.GetConn(), buf)
-
-		br := bufio.NewReader(tee)
-
-		req, err := http.ReadRequest(br)
-		if err == io.EOF {
-			log.Infof("Payload is empty.", err)
-			return ""
-		} else if err != nil {
-			log.Errorf("Failed to parse payload to HTTP Request, Error: %s", err)
-			return ""
-		}
-
-		m := map[string]interface{}{}
-		m["method"] = req.Method
-		m["header"] = req.Header
-		m["host"] = req.Host
-		m["form"] = req.Form
-		body := make([]byte, 1024)
-		if params["withBody"] == "1" {
-
-			defer req.Body.Close()
-			n, _ := req.Body.Read(body)
-
-			body = body[:n]
-			var js2 map[string]interface{}
-			if json.Unmarshal([]byte(body), &js2) == nil {
-				m["body"] = js2
-			} else {
-				m["body"] = string(body)
-			}
-		}
-
-		result, err := json.Marshal(m)
-		if err != nil {
-			log.Errorf("Failed to parse request struct to json, Error: %s", err)
-			return "{}"
-		}
-
-		return string(result)
-	}, service)
-
-	c.SetVoidFunction("restWrite", func() {
-		params, _ := c.GetParameters([]string{"status", "response", "headers"}, service)
-
-		status, _ := strconv.Atoi(params["status"])
-		buf := c.GetConnectionBuffer()
-		br := bufio.NewReader(buf)
-
-		req, err := http.ReadRequest(br)
-		if err == io.EOF {
-			return
-		} else if err != nil {
-			log.Errorf("Error while reading buffered request connection, %s", err)
-			return
-		}
-
-		defer req.Body.Close()
-
-		header := http.Header{}
-
-		header.Set("date", (time.Now()).String())
-		header.Set("connection", "Keep-Alive")
-		header.Set("content-type", "application/json")
-
-		var headers map[string]string
-		json.Unmarshal([]byte(params["data"]), &headers)
-		for name, value := range headers {
-			header.Set(name, value)
-		}
-
-		resp := http.Response{
-			StatusCode: status,
-			Status:     http.StatusText(status),
-			Proto:      req.Proto,
-			ProtoMajor: req.ProtoMajor,
-			ProtoMinor: req.ProtoMinor,
-			Request:    req,
-			Header: header,
-			Body:          ioutil.NopCloser(bytes.NewBufferString(params["response"])),
-			ContentLength: int64(len(params["response"])),
-		}
-
-		if err := resp.Write(c.GetConn()); err != nil {
-			log.Errorf("Writing of scripter - REST message was not successful, %s", err)
 		}
 	}, service)
 
