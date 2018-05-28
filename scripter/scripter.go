@@ -277,6 +277,8 @@ func SetBasicMethods(s Scripter, c ScrConn, service string) {
 		for key, value := range data {
 			event.Custom(key, value)(message)
 		}
+		event.Custom("destination-ip", c.GetConn().LocalAddr().String())(message)
+		event.Custom("source-ip", c.GetConn().RemoteAddr().String())(message)
 
 		s.GetChannel().Send(message)
 	}, service)
