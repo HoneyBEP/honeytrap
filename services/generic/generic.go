@@ -41,11 +41,11 @@ import (
 )
 
 var (
-	_   = services.Register("generic", generic)
+	_   = services.Register("generic", Generic)
 	log = logging.MustGetLogger("services/generic")
 )
 
-func generic(options ...services.ServicerFunc) services.Servicer {
+func Generic(options ...services.ServicerFunc) services.Servicer {
 	s := &genericService{}
 
 	for _, o := range options {
