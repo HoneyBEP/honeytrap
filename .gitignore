@@ -13,6 +13,7 @@ downloads/
 *.so
 *.bolted 
 *.db
+*.mmdb
 config.toml
 
 # Folders
