@@ -8,11 +8,6 @@ import (
 	"github.com/op/go-logging"
 	"net"
 	"time"
-	"io/ioutil"
-	"sort"
-	"reflect"
-	"os"
-	"github.com/honeytrap/honeytrap/utils/crypto"
 )
 
 var (
@@ -170,34 +165,6 @@ func SetBasicMethods(c ScrConn, service string) {
 	}, service)
 }
 
-// setScriptInterval sets the interval of checking whether scripts have been changed
-func SetScriptInterval(s Scripter, i time.Duration) {
-
-	// How often to fire the passed in function
-	// in milliseconds
-	interval := i * time.Second
-
-	// Setup the ticket and the channel to signal
-	// the ending of the interval
-	ticker := time.NewTicker(interval)
-	quit := make(chan struct{})
-
-	// Put the selection in a go routine
-	// so that the for loop is none blocking
-	go func() {
-		for {
-			select {
-			case <- ticker.C:
-				go checkReloadScripts(s)
-			case <- quit:
-				ticker.Stop()
-				return
-			}
-
-		}
-	}()
-}
-
 // ReloadScripts reloads the scripts from the scripter
 func ReloadScripts(s Scripter) {
 	for service := range s.GetScripts() {
@@ -205,41 +172,6 @@ func ReloadScripts(s Scripter) {
 			log.Errorf("error init service: %s", err)
 		} else {
 			log.Infof("successfully updated service: %s", service)
-		}
-	}
-}
-
-// checkReloadScripts initializes services again when scripts have been changed within the service
-func checkReloadScripts(s Scripter) {
-	for service, scripts := range s.GetScripts() {
-		// retrieve hashes from current files
-		fileNames, _ := ioutil.ReadDir(fmt.Sprintf("%s/%s", s.GetScriptFolder(), service))
-		var newHashes []string
-		var oldHashes []string
-		for _, f := range fileNames {
-			if f.IsDir() {
-				continue
-			}
-			if fileStat, err := os.Stat(fmt.Sprintf("%s/%s/%s", s.GetScriptFolder(), service, f.Name())); err == nil {
-				newHashes = append(newHashes, crypto.SHA1([]byte(fmt.Sprintf("%d%s", fileStat.Size(), fileStat.ModTime()))))
-			}
-		}
-
-		// retrieve hashes from old files
-		for _, script := range scripts {
-			oldHashes = append(oldHashes, script.Hash)
-		}
-
-		sort.Strings(newHashes)
-		sort.Strings(oldHashes)
-
-		// perform reloaded when needed
-		if !reflect.DeepEqual(newHashes, oldHashes) {
-			if err := s.Init(service); err != nil {
-				log.Errorf("error init service: %s", err)
-			} else {
-				log.Infof("successfully updated service: %s", service)
-			}
 		}
 	}
 }
