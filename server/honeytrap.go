@@ -97,6 +97,7 @@ import (
 
 	"github.com/op/go-logging"
 	"encoding/json"
+	"github.com/honeytrap/honeytrap/utils/files"
 )
 
 var log = logging.MustGetLogger("honeytrap/server")
@@ -320,7 +321,31 @@ func (hc *Honeytrap) HandleRequests(message []byte) {
 	var js map[string]interface{}
 	json.Unmarshal(message, &js)
 
-	if val, ok := js["action"]; ok && val == "reload_scripts" {
+	if val, ok := js["action"]; ok && val == "fileReload" {
+		hc.ReloadScripts()
+	} else if ok && val == "filePut" {
+		if path, ok := js["path"].(string); ok {
+			if content, ok := js["file"].(string); ok {
+				if err := files.Put(path, content); err == nil {
+					hc.ReloadScripts()
+				}
+			}
+		}
+	} else if ok && val == "fileDelete" {
+		if path, ok := js["path"].(string); ok {
+			if err := files.Delete(path); err == nil {
+				hc.ReloadScripts()
+			}
+		}
+	} else if ok && val == "fileRead" {
+		dir, ok := js["dir"].(string)
+		if !ok {
+			dir = ""
+		}
+
+		// TODO (NuquisitoX): test and handle errors
+		files.Walker("lua-scripts/" + dir)
+
 		hc.ReloadScripts()
 	}
 }

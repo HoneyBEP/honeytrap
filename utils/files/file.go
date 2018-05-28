@@ -164,3 +164,49 @@ func TarWalker(rootpath string, w io.Writer) error {
 
 	return nil
 }
+
+// Walker walks a path and turns it into a JSON
+func Walker(rootpath string) error {
+	walkFn := func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			log.Errorf("Error while walking path %s: %s", path, err.Error())
+			return err
+		}
+
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+
+		np, err := filepath.Rel(rootpath, path)
+		if err != nil {
+			return err
+		}
+
+		log.Info(np)
+
+		fl, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+
+		defer fl.Close()
+
+		var h *tar.Header
+		if h, err = tar.FileInfoHeader(info, ""); err != nil {
+			return err
+		}
+
+		h.Name = np
+
+		// TODO: should be pushed to channel, then in channel it can be filtered, tarred or whatever. Just push the path
+		return nil
+	}
+
+	err := filepath.Walk(rootpath, walkFn)
+	if err != nil {
+		log.Errorf("Error occurred walking dir %s with Error: (%+s)", rootpath, err.Error())
+		return err
+	}
+
+	return nil
+}
