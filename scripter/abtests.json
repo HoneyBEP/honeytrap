@@ -15,8 +15,9 @@
       "Darwin##unknown##x86_64##i386##unknown##unknown##Darwin Kernel Version 14.5.0: Sun Jun  4 21:40:08 PDT 2017; root:xnu-2782.70.3~1/RELEASE_X86_64##14.5.0",
       "Linux##GNU/Linux##x86_64##x86_64##x86_64##x86_64###148-Ubuntu SMP Wed May 2 13:00:18 UTC 2018##4.4.0-124-generic",
       "Linux##GNU/Linux##x86_64##x86_64##unknown##unknown###1 SMP PREEMPT Thu May 17 02:10:09 UTC 2018##4.16.9-1-ARCH",
-      "Linux##GNU/Linux##armv7l##armv7l##unknown##unknown###1014 SMP Fri Jun 30 14:47:43 BST 2017##4.9.35-v7+"
-      "FreeBSD##FreeBSD##amd64##amd64##amd64##GENERIC##FreeBSD 9.0-RELEASE #0: Tue Jan 3 07:46:30 UTC 2012##9.0-RELEASE"
+      "Linux##GNU/Linux##armv7l##armv7l##unknown##unknown###1014 SMP Fri Jun 30 14:47:43 BST 2017##4.9.35-v7+",
+      "FreeBSD##FreeBSD##amd64##amd64##amd64##GENERIC##FreeBSD 9.0-RELEASE #0: Tue Jan 3 07:46:30 UTC 2012##9.0-RELEASE",
+      "Linux##GNU/Linux##armv6l##armv6l##unknown##unknown###1110 Mon Apr 16 14:51:42 BST 2018##4.14.34+"
     ]
   }
 }
