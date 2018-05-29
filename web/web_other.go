@@ -117,7 +117,7 @@ type Web struct {
 	hotCountries *SafeArray
 	events       *SafeArray
 
-	handleRequest func(message []byte)
+	handleRequest func(message []byte) ([]byte, error)
 }
 
 func New(options ...func(*Web) error) (*Web, error) {
@@ -390,6 +390,6 @@ func (web *Web) ServeWS(w http.ResponseWriter, r *http.Request) {
 	c.readPump()
 }
 
-func (web *Web) RegisterHandleRequest(HandleRequest func(message []byte)) {
+func (web *Web) RegisterHandleRequest(HandleRequest func(message []byte) ([]byte, error)) {
 	web.handleRequest = HandleRequest
 }

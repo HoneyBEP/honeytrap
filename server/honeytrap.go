@@ -319,7 +319,7 @@ func IsTerminal(f *os.File) bool {
 	return false
 }
 
-func (hc *Honeytrap) HandleRequests(message []byte) {
+func (hc *Honeytrap) HandleRequests(message []byte) ([]byte, error) {
 	var js map[string]interface{}
 	json.Unmarshal(message, &js)
 
@@ -345,10 +345,9 @@ func (hc *Honeytrap) HandleRequests(message []byte) {
 			dir = ""
 		}
 
-		// TODO (NuquisitoX): test and handle errors
 		dirFiles, err := files.Walker("scripts/" + dir)
 		if err != nil {
-			return
+			return nil, err
 		}
 
 		type fileInfo struct {
@@ -359,19 +358,22 @@ func (hc *Honeytrap) HandleRequests(message []byte) {
 		for _, file := range dirFiles {
 			content, err := ioutil.ReadFile("scripts/" + dir + file)
 			if err != nil {
-				return
+				return nil, err
 			}
 
 			fileInfos = append(fileInfos, fileInfo{Path: "scripts/" + dir + file, Content: base64.StdEncoding.EncodeToString(content)})
 		}
 
-		if _, err := json.Marshal(fileInfos); err != nil {
-			return
+		if fileJSON, err := json.Marshal(fileInfos); err != nil {
+			return nil, err
+		} else {
+			return fileJSON, nil
 		}
-		// TODO (NuquisitoX): return file JSON to websocket
 
 		hc.ReloadScripts()
 	}
+
+	return nil, nil
 }
 
 func (hc *Honeytrap) ReloadScripts() {
