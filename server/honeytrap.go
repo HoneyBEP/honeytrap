@@ -97,9 +97,6 @@ import (
 
 	"github.com/op/go-logging"
 	"encoding/json"
-	"github.com/honeytrap/honeytrap/utils/files"
-	"io/ioutil"
-	"encoding/base64"
 )
 
 var log = logging.MustGetLogger("honeytrap/server")
@@ -323,70 +320,11 @@ func (hc *Honeytrap) HandleRequests(message []byte) ([]byte, error) {
 	var js map[string]interface{}
 	json.Unmarshal(message, &js)
 
-	type fileInfo struct {
-		Path string `json:"path"`
-		Content string `json:"content"`
-	}
-
-	type response struct {
-		Type string `json:"type"`
-		Data interface{} `json:"data"`
-	}
-
-	if val, ok := js["action"]; ok && val == "file_reload" {
-		hc.ReloadScripts()
-	} else if ok && val == "file_put" {
-		if path, ok := js["path"].(string); ok {
-			if content, ok := js["file"].(string); ok {
-				if err := files.Put(path, content); err == nil {
-					hc.ReloadScripts()
-				}
-			}
-		}
-	} else if ok && val == "file_delete" {
-		if path, ok := js["path"].(string); ok {
-			if err := files.Delete(path); err == nil {
-				hc.ReloadScripts()
-			}
-		}
-	} else if ok && val == "file_read" {
-		dir, ok := js["dir"].(string)
-		if !ok {
-			dir = ""
-		}
-
-		dirFiles, err := files.Walker("scripts/" + dir)
-		if err != nil {
-			return nil, err
-		}
-
-		var fileInfos []fileInfo
-		for _, file := range dirFiles {
-			content, err := ioutil.ReadFile("scripts/" + dir + file)
-			if err != nil {
-				return nil, err
-			}
-
-			fileInfos = append(fileInfos, fileInfo{Path: strings.Replace("scripts/" + dir + file, string(os.PathSeparator), "/", -1), Content: base64.StdEncoding.EncodeToString(content)})
-		}
-
-		fileJSON := response{ Type: "files", Data: fileInfos }
-		if fileJSON, err := json.Marshal(fileJSON); err != nil {
-			return nil, err
-		} else {
-			return fileJSON, nil
-		}
-
-		hc.ReloadScripts()
+	if sType, ok := js["type"]; ok && sType == "scripter" {
+		return scripter.HandleRequests(hc.scripters, message)
 	}
 
 	return nil, nil
-}
-
-func (hc *Honeytrap) ReloadScripts() {
-	for _, script := range hc.scripters {
-		scripter.ReloadScripts(script)
-	}
 }
 
 // Run will start honeytrap
