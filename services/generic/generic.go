@@ -77,6 +77,7 @@ func (s *genericService) Handle(ctx context.Context, conn net.Conn) error {
 	pConn := utils.PeekConnection(conn)
 	n, _ := pConn.Peek(buffer)
 
+	// Add the go methods that have to be exposed to the scripts
 	connW := s.scr.GetConnection("generic", pConn)
 
 	s.setMethods(connW)

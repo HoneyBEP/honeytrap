@@ -6,6 +6,7 @@ type ConnectionStruct struct {
 	Conn    ScrConn
 }
 
+// GetScrConn returns the ScrConn
 func (w *ConnectionStruct) GetScrConn() ScrConn {
 	return w.Conn
 }

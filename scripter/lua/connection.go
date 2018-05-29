@@ -103,6 +103,7 @@ func (c *luaConn) AddScripts(service string, scripts map[string]string) {
 	}
 }
 
+// GetConnectionBuffer returns the buffer of the connection
 func (c *luaConn) GetConnectionBuffer() *bytes.Buffer {
 	return &c.connectionBuffer
 }

@@ -12,6 +12,7 @@ import (
 	"time"
 )
 
+// setMethods sets the methods required for the generic scripts in the Handle method of the generic service
 func (s *genericService) setMethods(connW scripter.ConnectionWrapper) error {
 	if setErr := connW.SetStringFunction("getRequest", func() string {
 		params, _ := connW.GetParameters([]string{"withBody"})

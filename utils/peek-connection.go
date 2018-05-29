@@ -43,6 +43,7 @@ func PeekConnection(conn net.Conn) *PeekConn {
 	}
 }
 
+// PeekConn struct, allows peeking a connection by writing peeked content to a buffer. Returning this content first when reading
 type PeekConn struct {
 	net.Conn
 
@@ -50,6 +51,7 @@ type PeekConn struct {
 	m      sync.Mutex
 }
 
+// Peek writes the buffer from the connection, returning the amount of bytes written
 func (pc *PeekConn) Peek(p []byte) (int, error) {
 	pc.m.Lock()
 	defer pc.m.Unlock()
@@ -60,6 +62,7 @@ func (pc *PeekConn) Peek(p []byte) (int, error) {
 	return n, err
 }
 
+// Read writes the buffer from the connection, first writing bytes that have been peeked
 func (pc *PeekConn) Read(p []byte) (n int, err error) {
 	pc.m.Lock()
 	defer pc.m.Unlock()

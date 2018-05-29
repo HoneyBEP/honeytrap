@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-//SetBasicMethods sets methods that can be called by each script, returning basic functionality
+//SetBasicMethods sets methods that can be called by each script, returning basic functionality for the scripts initiated in the scripter
 func SetBasicMethods(s Scripter, c ScrConn, service string) {
 	c.SetStringFunction("getRemoteAddr", func() string { return c.GetConn().RemoteAddr().String() }, service)
 	c.SetStringFunction("getLocalAddr", func() string { return c.GetConn().LocalAddr().String() }, service)
