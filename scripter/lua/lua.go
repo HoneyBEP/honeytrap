@@ -19,7 +19,7 @@ var (
 	_ = scripter.Register("lua", New)
 )
 
-// New creates a lua scripter instance that handles the connection to all lua-scripts
+// New creates a lua scripter instance that handles the connection to all scripts
 // A list where all scripts are stored in is generated
 func New(name string, options ...func(scripter.Scripter) error) (scripter.Scripter, error) {
 	l := &luaScripter{
@@ -60,7 +60,7 @@ type luaScripter struct {
 }
 
 // Init initializes the scripts from a specific service
-// The service name is given and the method will loop over all files in the lua-scripts folder with the given service name
+// The service name is given and the method will loop over all files in the scripts folder with the given service name
 // All of these scripts are then loaded and stored in the scripts map
 func (l *luaScripter) Init(service string) error {
 	fileNames, err := ioutil.ReadDir(fmt.Sprintf("%s/%s/%s", l.Folder, l.name, service))

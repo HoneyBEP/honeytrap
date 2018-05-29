@@ -98,6 +98,8 @@ import (
 	"github.com/op/go-logging"
 	"encoding/json"
 	"github.com/honeytrap/honeytrap/utils/files"
+	"io/ioutil"
+	"encoding/base64"
 )
 
 var log = logging.MustGetLogger("honeytrap/server")
@@ -344,7 +346,29 @@ func (hc *Honeytrap) HandleRequests(message []byte) {
 		}
 
 		// TODO (NuquisitoX): test and handle errors
-		files.Walker("lua-scripts/" + dir)
+		dirFiles, err := files.Walker("scripts/" + dir)
+		if err != nil {
+			return
+		}
+
+		type fileInfo struct {
+			Path string
+			Content string
+		}
+		var fileInfos []fileInfo
+		for _, file := range dirFiles {
+			content, err := ioutil.ReadFile("scripts/" + dir + file)
+			if err != nil {
+				return
+			}
+
+			fileInfos = append(fileInfos, fileInfo{Path: "scripts/" + dir + file, Content: base64.StdEncoding.EncodeToString(content)})
+		}
+
+		if _, err := json.Marshal(fileInfos); err != nil {
+			return
+		}
+		// TODO (NuquisitoX): return file JSON to websocket
 
 		hc.ReloadScripts()
 	}
