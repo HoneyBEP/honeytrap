@@ -45,7 +45,7 @@ type Scripter interface {
 	//SetGlobalFn(name string, fn func() string) error
 	GetConnection(service string, conn net.Conn) ConnectionWrapper
 	CanHandle(service string, message string) bool
-	GetScripts() map[string]map[string]*Script
+	GetScripts() map[string]map[string]string
 	GetScriptFolder() string
 }
 
@@ -74,14 +74,6 @@ type ScrConn interface {
 //The nil value can be used to indicate that lua has no value to return
 type Result struct {
 	Content string
-}
-
-type Script struct {
-	// hash of the file
-	Hash string
-
-	// source of the states, initialized per connection: directory/scriptname
-	Source string
 }
 
 //ScrAbTester exposes methods to interact with the AbTester

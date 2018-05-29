@@ -323,9 +323,19 @@ func (hc *Honeytrap) HandleRequests(message []byte) ([]byte, error) {
 	var js map[string]interface{}
 	json.Unmarshal(message, &js)
 
-	if val, ok := js["action"]; ok && val == "fileReload" {
+	type fileInfo struct {
+		Path string `json:"path"`
+		Content string `json:"content"`
+	}
+
+	type response struct {
+		Type string `json:"type"`
+		Data interface{} `json:"data"`
+	}
+
+	if val, ok := js["action"]; ok && val == "file_reload" {
 		hc.ReloadScripts()
-	} else if ok && val == "filePut" {
+	} else if ok && val == "file_put" {
 		if path, ok := js["path"].(string); ok {
 			if content, ok := js["file"].(string); ok {
 				if err := files.Put(path, content); err == nil {
@@ -333,13 +343,13 @@ func (hc *Honeytrap) HandleRequests(message []byte) ([]byte, error) {
 				}
 			}
 		}
-	} else if ok && val == "fileDelete" {
+	} else if ok && val == "file_delete" {
 		if path, ok := js["path"].(string); ok {
 			if err := files.Delete(path); err == nil {
 				hc.ReloadScripts()
 			}
 		}
-	} else if ok && val == "fileRead" {
+	} else if ok && val == "file_read" {
 		dir, ok := js["dir"].(string)
 		if !ok {
 			dir = ""
@@ -350,10 +360,6 @@ func (hc *Honeytrap) HandleRequests(message []byte) ([]byte, error) {
 			return nil, err
 		}
 
-		type fileInfo struct {
-			Path string
-			Content string
-		}
 		var fileInfos []fileInfo
 		for _, file := range dirFiles {
 			content, err := ioutil.ReadFile("scripts/" + dir + file)
@@ -361,10 +367,11 @@ func (hc *Honeytrap) HandleRequests(message []byte) ([]byte, error) {
 				return nil, err
 			}
 
-			fileInfos = append(fileInfos, fileInfo{Path: "scripts/" + dir + file, Content: base64.StdEncoding.EncodeToString(content)})
+			fileInfos = append(fileInfos, fileInfo{Path: strings.Replace("scripts/" + dir + file, string(os.PathSeparator), "/", -1), Content: base64.StdEncoding.EncodeToString(content)})
 		}
 
-		if fileJSON, err := json.Marshal(fileInfos); err != nil {
+		fileJSON := response{ Type: "files", Data: fileInfos }
+		if fileJSON, err := json.Marshal(fileJSON); err != nil {
 			return nil, err
 		} else {
 			return fileJSON, nil

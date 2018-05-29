@@ -9,8 +9,6 @@ import (
 	"io/ioutil"
 	"net"
 	"strings"
-	"os"
-	"github.com/honeytrap/honeytrap/utils/crypto"
 )
 
 var log = logging.MustGetLogger("scripter/lua")
@@ -31,7 +29,7 @@ func New(name string, options ...func(scripter.Scripter) error) (scripter.Script
 	}
 
 	log.Infof("Using folder: %s", l.Folder)
-	l.scripts = map[string]map[string]*scripter.Script{}
+	l.scripts = map[string]map[string]string{}
 	l.connections = map[string]*luaConn{}
 	l.canHandleStates = map[string]map[string]*lua.LState{}
 	l.abTester, _ = abtester.Namespace("lua")
@@ -50,7 +48,7 @@ type luaScripter struct {
 	Folder string `toml:"folder"`
 
 	//Source of the states, initialized per connection: directory/scriptname
-	scripts map[string]map[string]*scripter.Script
+	scripts map[string]map[string]string
 	//List of connections keyed by 'ip'
 	connections map[string]*luaConn
 	//Lua states to check whether the connection can be handled with the script
@@ -70,7 +68,7 @@ func (l *luaScripter) Init(service string) error {
 
 	// TODO: Load basic lua functions from shared context
 	l.connections = map[string]*luaConn{}
-	l.scripts[service] = map[string]*scripter.Script{}
+	l.scripts[service] = map[string]string{}
 	l.canHandleStates[service] = map[string]*lua.LState{}
 
 	for _, f := range fileNames {
@@ -79,13 +77,7 @@ func (l *luaScripter) Init(service string) error {
 		}
 
 		sf := fmt.Sprintf("%s/%s/%s/%s", l.Folder, l.name, service, f.Name())
-
-		hash := ""
-		if fileStat, err := os.Stat(sf); err == nil {
-			hash = crypto.SHA1([]byte(fmt.Sprintf("%d%s", fileStat.Size(), fileStat.ModTime())))
-		}
-
-		l.scripts[service][f.Name()] = &scripter.Script{hash, sf}
+		l.scripts[service][f.Name()] = sf
 
 		ls := lua.NewState()
 		if err := ls.DoFile(sf); err != nil {
@@ -108,11 +100,7 @@ func (l *luaScripter) GetConnection(service string, conn net.Conn) scripter.Conn
 	}
 
 	if !sConn.HasScripts(service) {
-		scripts := make(map[string]string)
-		for name, script := range l.scripts[service] {
-			scripts[name] = script.Source
-		}
-		sConn.AddScripts(service, scripts)
+		sConn.AddScripts(service, l.scripts[service])
 	}
 
 	return &scripter.ConnectionStruct{Service: service, Conn: sConn}
@@ -134,7 +122,7 @@ func (l *luaScripter) CanHandle(service string, message string) bool {
 }
 
 // GetScripts return the scripts for this scripter
-func (l *luaScripter) GetScripts() map[string]map[string]*scripter.Script {
+func (l *luaScripter) GetScripts() map[string]map[string]string {
 	return l.scripts
 }
 
