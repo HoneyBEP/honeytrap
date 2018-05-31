@@ -357,9 +357,11 @@ func (s *sshSimulatorService) Handle(ctx context.Context, conn net.Conn) error {
 					log.Errorf("wantreply: ", err)
 				}
 
-				s.c.Send(event.New(
-					options...,
-				))
+				if req.Type != "exec" {
+					s.c.Send(event.New(
+						options...,
+					))
+				}
 
 				func() {
 					if req.Type == "shell" {
@@ -409,7 +411,7 @@ func (s *sshSimulatorService) Handle(ctx context.Context, conn net.Conn) error {
 								event.DestinationAddr(conn.LocalAddr()),
 								event.Custom("ssh.sessionid", id.String()),
 								event.Custom("ssh.command", line),
-								event.Custom("responseText", resp),
+								event.Custom("response", resp),
 							))
 
 							term.Write([]byte(resp))
@@ -436,14 +438,9 @@ func (s *sshSimulatorService) Handle(ctx context.Context, conn net.Conn) error {
 								break
 							}
 
+							options = append(options, event.Custom("response", resp))
 							s.c.Send(event.New(
-								services.EventOptions,
-								event.Category("ssh"),
-								event.Type("ssh-channel"),
-								event.SourceAddr(conn.RemoteAddr()),
-								event.DestinationAddr(conn.LocalAddr()),
-								event.Custom("ssh.sessionid", id.String()),
-								event.Custom("execResponse", resp),
+								options...,
 							))
 
 							channel.Write([]byte(resp))
