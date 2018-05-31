@@ -393,6 +393,14 @@ func (s *sshSimulatorService) Handle(ctx context.Context, conn net.Conn) error {
 								continue
 							}
 
+							resp, err := scrConn.Handle(line)
+							if err != nil {
+								resp = fmt.Sprintf("%s: command not found\n", line)
+								log.Errorf("Error running scripter: %s", err.Error())
+							} else {
+								term.Write([]byte(resp))
+							}
+
 							s.c.Send(event.New(
 								services.EventOptions,
 								event.Category("ssh"),
@@ -401,17 +409,10 @@ func (s *sshSimulatorService) Handle(ctx context.Context, conn net.Conn) error {
 								event.DestinationAddr(conn.LocalAddr()),
 								event.Custom("ssh.sessionid", id.String()),
 								event.Custom("ssh.command", line),
+								event.Custom("responseText", resp),
 							))
 
-							resp, err := scrConn.Handle(line)
-							if err != nil {
-								log.Errorf("Error running scripter: %s", err.Error())
-							} else {
-								term.Write([]byte(resp))
-								continue
-							}
-
-							term.Write([]byte(fmt.Sprintf("%s: command not found\n", line)))
+							term.Write([]byte(resp))
 						}
 					} else if req.Type == "exec" {
 						defer channel.Close()
@@ -430,13 +431,22 @@ func (s *sshSimulatorService) Handle(ctx context.Context, conn net.Conn) error {
 							channel.Write([]byte(fmt.Sprintf("%s", resp)))
 
 							if err != nil {
+								resp = fmt.Sprintf("%s: command not found\n", payload)
 								log.Errorf("Error running scripter: %s", err.Error())
-								channel.Write([]byte(fmt.Sprintf("%s: command not found\n", payload)))
 								break
-							} else {
-								channel.Write([]byte(fmt.Sprintf("%s", resp)))
-								continue
 							}
+
+							s.c.Send(event.New(
+								services.EventOptions,
+								event.Category("ssh"),
+								event.Type("ssh-channel"),
+								event.SourceAddr(conn.RemoteAddr()),
+								event.DestinationAddr(conn.LocalAddr()),
+								event.Custom("ssh.sessionid", id.String()),
+								event.Custom("execResponse", resp),
+							))
+
+							channel.Write([]byte(resp))
 						}
 
 						channel.SendRequest("exit-status", false, []byte{0, 0, 0, 0})
