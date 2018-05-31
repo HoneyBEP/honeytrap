@@ -13,7 +13,6 @@ import Search from './search';
 
 import SessionList from './session-list';
 import ConfigurationOverview from './configuration-overview';
-import ScriptOverview from './script-overview';
 import NotFoundPage from './not-found';
 
 import { HashRouter, BrowserRouter, Redirect, Switch, Route } from 'react-router-dom';
@@ -59,11 +58,10 @@ class App extends Component {
                         </nav>
                     </div>
                         <Switch>
-                            <Route exact path="/" component={Dashboard} />
+                            <Route exact path="/" component={Dashboard} / >
                                 <Route exact path="/agents" component={Agents} />
                                 <Route exact path="/events" component={Events} />
                                 <Route exact path="/configuration" component={ConfigurationOverview} />
-                                <Route exact path="/script" component={ScriptOverview} />
                                 <Route path="/404" component={NotFoundPage} />
                                 <Redirect from='*' to='/404' />
                         </Switch>

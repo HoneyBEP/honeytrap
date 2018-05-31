@@ -19,11 +19,7 @@ class Navigation extends Component {
                 </li>
                 <li className="nav-header">Configuration</li>
                 <li>
-                <NavLink activeClassName="active" to="/configuration">Overview</NavLink>
-                </li>
-                <li className="nav-header">Scripts</li>
-                <li>
-                <NavLink activeClassName="active" to="/script">Overview</NavLink>
+                <NavLink activeClassName="active" to="/configuration/">Overview</NavLink>
                 </li>
                 <li className="nav-header">Other</li>
                 <li >

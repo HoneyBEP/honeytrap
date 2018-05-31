@@ -1,7 +1,5 @@
 import axios from 'axios';
 
-export const WEBSOCKET_STARTED = 'WEBSOCKET_STARTED';
-
 export const RECEIVED_EVENT = 'RECEIVED_EVENT';
 export const RECEIVED_EVENTS = 'RECEIVED_EVENTS';
 export const CONNECTION_STATUS = 'CONNECTION_STATUS';
@@ -58,17 +56,8 @@ export function connectionStatus(connected) {
 	  return {
 		    type: CONNECTION_STATUS,
 		    payload: {
-            	connected: connected,
-        	}
-	  };
-}
-
-export function websocketStarted(socket) {
-	  return {
-		    type: WEBSOCKET_STARTED,
-		    payload: {
-            	socket: socket,
-        	}
+            connected: connected, 
+        }
 	  };
 }
 

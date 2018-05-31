@@ -41,7 +41,7 @@ function configureStore() {
 }
 
 const store = configureStore({
-    sessions: { all: [], events: [], session: null, content: [], metadata: null, hotCountries: [], connected: false, topology: {}, socket: null },
+    sessions: { all: [], events: [], session: null, content: [], metadata: null, hotCountries: [], connected: false, topology: {} },
 }); 
 
 ReactDOM.render(
@@ -50,7 +50,7 @@ ReactDOM.render(
         <Provider store={store}>
             <ConnectedRouter history={history}>
                 <Switch>
-                    <Route path="/" component={App} />
+                    <Route path="/" component={App} / >
                 </Switch>
             </ConnectedRouter>
         </Provider>

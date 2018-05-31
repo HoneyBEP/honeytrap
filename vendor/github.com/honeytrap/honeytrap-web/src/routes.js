@@ -8,14 +8,12 @@ import Random from './components/random';
 import Dashboard from './components/dashboard';
 import SessionList from './components/session-list';
 import ConfigurationOverview from './components/configuration-overview';
-import ScriptOverview from './components/script-overview';
 import App from './components/app';
 import NotFoundPage from './components/not-found';
 
 export default (
 	  <Route path="/" component={Dashboard}>
-		    <Route path="/configurations" component={ConfigurationOverview} />
-		    <Route path="/scripts" component={ScriptOverview} />
+		    <Route path="/configuration/" component={ConfigurationOverview} />
 		    <Route path="/404" component={NotFoundPage} />
         /*
 		    <Route path="/session/:id" component={SessionShow} />
@@ -24,6 +22,6 @@ export default (
 		    <Route path="/server" component={Server} />
 		    <Route path="/random" component={Random} />
         */
-        	<Redirect from='*' to='/404' />
+        <Redirect from='*' to='/404' />
 	  </Route>
 );
