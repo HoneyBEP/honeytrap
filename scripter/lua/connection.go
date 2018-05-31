@@ -95,6 +95,7 @@ func (c *luaConn) AddScripts(service string, scripts map[string]string) {
 
 	for name, script := range scripts {
 		ls := lua.NewState()
+		ls.DoString("package.path = './lua-scripts/lua/?.lua;' .. package.path")
 		if err := ls.DoFile(script); err != nil {
 			log.Errorf("Unable to load lua script: %s", err)
 			continue
