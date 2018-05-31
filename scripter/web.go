@@ -108,6 +108,8 @@ func handleScriptPut(js map[string]interface{}) ([]byte, error) {
 	}
 
 	files.Put(basepath + path, content)
+
+	return nil, nil
 }
 
 // handleScriptDelete handles the delete script web request
