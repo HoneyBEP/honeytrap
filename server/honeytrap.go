@@ -99,6 +99,7 @@ import (
 	"github.com/op/go-logging"
 	"github.com/honeytrap/honeytrap/utils"
 	"encoding/json"
+	"github.com/honeytrap/honeytrap/abtester"
 )
 
 var log = logging.MustGetLogger("honeytrap/server")
@@ -452,6 +453,12 @@ func (hc *Honeytrap) Run(ctx context.Context) {
 		}
 	}
 
+	// initialize abtester
+	ab, err := abtester.New("Honeytrap", hc.config.AbTester)
+	if err != nil {
+		log.Errorf("Error initializing abtester: %s", err)
+	}
+
 	// initialize scripters
 	scripters := map[string]scripter.Scripter{}
 	availableScripterNames := scripter.GetAvailableScripterNames()
@@ -478,6 +485,7 @@ func (hc *Honeytrap) Run(ctx context.Context) {
 			key,
 			scripter.WithConfig(s),
 			scripter.WithChannel(hc.bus),
+			scripter.WithAbTester(ab),
 		); err != nil {
 			log.Fatalf("Error initializing scripter %s(%s): %s", key, x.Type, err)
 		} else {
