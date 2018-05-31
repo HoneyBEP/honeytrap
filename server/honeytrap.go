@@ -318,19 +318,15 @@ func IsTerminal(f *os.File) bool {
 	return false
 }
 
-func (hc *Honeytrap) HandleRequests(message []byte) {
+func (hc *Honeytrap) HandleRequests(message []byte) ([]byte, error) {
 	var js map[string]interface{}
 	json.Unmarshal(message, &js)
 
-	if val, ok := js["action"]; ok && val == "reload_scripts" {
-		hc.ReloadScripts()
+	if sType, ok := js["type"]; ok && sType == "scripter" {
+		return scripter.HandleRequests(hc.scripters, message)
 	}
-}
 
-func (hc *Honeytrap) ReloadScripts() {
-	for _, script := range hc.scripters {
-		scripter.ReloadScripts(script)
-	}
+	return nil, nil
 }
 
 // Run will start honeytrap

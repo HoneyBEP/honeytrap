@@ -3,10 +3,11 @@ import { connect } from 'react-redux';
 
 // import Socket from '../utils/socket'
 import { default as Socket } from '../utils/socket';
+import {websocketStarted} from "../actions";
 
 class Websocket extends Component {
     componentWillMount() {
-	      const { dispatch } = this.props;
+        const { dispatch } = this.props;
 
         let url;
 
@@ -19,6 +20,7 @@ class Websocket extends Component {
 
         let socket = new Socket(url);
         socket.startWS(dispatch);
+        dispatch(websocketStarted(socket))
     }
 
     render() {

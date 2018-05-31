@@ -1,2 +1,5 @@
+# Intellij IDEA files
+.idea
+
 node_modules
 build
