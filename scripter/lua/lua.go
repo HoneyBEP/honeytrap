@@ -120,6 +120,7 @@ func (l *luaScripter) GetConnection(service string, conn net.Conn) scripter.Conn
 
 	if !sConn.HasScripts(service) {
 		sConn.AddScripts(service, l.scripts[service])
+		scripter.SetBasicMethods(l, sConn, service)
 	}
 
 	return &scripter.ConnectionStruct{Service: service, Conn: sConn}
