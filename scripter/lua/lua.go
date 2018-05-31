@@ -60,9 +60,14 @@ type luaScripter struct {
 	c pushers.Channel
 }
 
-//Set the channel over which messages to the log and elasticsearch can be set
+// SetChannel sets the channel over which messages to the log and elasticsearch can be set
 func (l *luaScripter) SetChannel(c pushers.Channel) {
 	l.c = c
+}
+
+// GetChannel gets the channel over which messages to the log and elasticsearch can be set
+func (l *luaScripter) GetChannel() pushers.Channel {
+	return l.c
 }
 
 // Init initializes the scripts from a specific service

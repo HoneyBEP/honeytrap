@@ -83,6 +83,7 @@ type Scripter interface {
 	GetConnection(service string, conn net.Conn) ConnectionWrapper
 	CanHandle(service string, message string) bool
 	SetChannel(c pushers.Channel)
+	GetChannel() pushers.Channel
 	GetScripts() map[string]map[string]string
 	GetScriptFolder() string
 }
