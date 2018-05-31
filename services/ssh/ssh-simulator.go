@@ -430,8 +430,6 @@ func (s *sshSimulatorService) Handle(ctx context.Context, conn net.Conn) error {
 
 							resp, err := scrConn.Handle(payload)
 
-							channel.Write([]byte(fmt.Sprintf("%s", resp)))
-
 							if err != nil {
 								resp = fmt.Sprintf("%s: command not found\n", payload)
 								log.Errorf("Error running scripter: %s", err.Error())
