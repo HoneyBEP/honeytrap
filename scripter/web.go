@@ -37,7 +37,10 @@ import (
 	"strings"
 	"os"
 	"encoding/base64"
+	"errors"
 )
+
+var basepath = "scripts/"
 
 // fileInfo covers the file info for responses
 type fileInfo struct {
@@ -56,70 +59,94 @@ func HandleRequests(scripters map[string]Scripter, message []byte) ([]byte, erro
 	var js map[string]interface{}
 	json.Unmarshal(message, &js)
 
-	basepath := "scripts/"
-
 	switch val, _ := js["action"]; val {
-	// reload scripts
 	case "script_reload":
-		ReloadAllScripters(scripters)
-		// put script
+		return handleScriptReload(scripters)
 	case "script_put":
-		if path, ok := js["path"].(string); ok {
-			if content, ok := js["file"].(string); ok {
-				if err := files.Put(basepath + path, content); err == nil {
-					ReloadAllScripters(scripters)
-				}
-			}
-		}
-		// delete script
+		return handleScriptPut(js)
 	case "script_delete":
-		if path, ok := js["path"].(string); ok {
-			if err := files.Delete(basepath + path); err == nil {
-				ReloadAllScripters(scripters)
-			}
-		}
-		// read scripts
+		return handleScriptDelete(js)
 	case "script_read":
-		dir, ok := js["dir"].(string)
-		if !ok {
-			dir = ""
-		}
+		return handleScriptRead(js)
+	}
 
-		arrFileInfo := readFiles(dir)
-		return generateResponse("scripts", arrFileInfo)
+	return nil, nil
+}
+
+// handleScriptReload handles the reload script web request
+func handleScriptReload(scripters map[string]Scripter) ([]byte, error) {
+	ReloadAllScripters(scripters)
+
+	return nil, nil
+}
+
+// handleScriptRead handles the read script web request
+func handleScriptRead(js map[string]interface{}) ([]byte, error) {
+	dir, ok := js["dir"].(string)
+	if !ok {
+		dir = ""
+	}
+
+	arrFileInfo, err := readFiles(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	return generateResponse("scripts", arrFileInfo)
+}
+
+// handleScriptPut handles the put script web request
+func handleScriptPut(js map[string]interface{}) ([]byte, error) {
+	path, ok := js["path"].(string)
+	if !ok {
+		return nil, errors.New("undefined script put path")
+	}
+
+	content, ok := js["file"].(string)
+	if !ok {
+		return nil, errors.New("undefined script content")
+	}
+
+	files.Put(basepath + path, content)
+}
+
+// handleScriptDelete handles the delete script web request
+func handleScriptDelete(js map[string]interface{}) ([]byte, error) {
+	path, ok := js["path"].(string)
+	if !ok {
+		return nil, errors.New("undefined script delete path")
+	}
+
+	if err := files.Delete(basepath + path); err != nil {
+		return nil, err
 	}
 
 	return nil, nil
 }
 
 // readFiles reads the files in the scripts directory
-func readFiles(dir string) []fileInfo {
-	var fileInfos []fileInfo
-	basepath := "scripts/"
+func readFiles(dir string) ([]fileInfo, error) {
+	var arrFileInfo []fileInfo
 
 	dirFiles, err := files.Walker(basepath + dir)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	for _, file := range dirFiles {
 		content, err := ioutil.ReadFile(basepath + dir + file)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 
-		fileInfos = append(fileInfos, fileInfo{Path: strings.Replace(basepath + dir + file, string(os.PathSeparator), "/", -1), Content: base64.StdEncoding.EncodeToString(content)})
+		arrFileInfo = append(arrFileInfo, fileInfo{Path: strings.Replace(basepath + dir + file, string(os.PathSeparator), "/", -1), Content: base64.StdEncoding.EncodeToString(content)})
 	}
 
-	return fileInfos
+	return arrFileInfo, nil
 }
 
 // generateResponse generates a JSON response for web requests
 func generateResponse(responseType string, data interface{}) ([]byte, error) {
 	response := response{ Type: responseType, Data: data }
-	if response, err := json.Marshal(response); err != nil {
-		return nil, err
-	} else {
-		return response, nil
-	}
+	return json.Marshal(response)
 }
