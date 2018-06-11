@@ -114,8 +114,4 @@ func TestSimpleWrite(t *testing.T) {
 		t.Errorf("Test failed: got %+#v, expected %+#v", buffer, test)
 		return
 	}
-
-	if err := client.Quit(); err != nil {
-		t.Errorf("Error with Quit: %s", err.Error())
-	}
 }
