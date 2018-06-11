@@ -34,19 +34,35 @@ import (
 	"testing"
 	"net"
 	"bytes"
-	"context"
 	"github.com/honeytrap/honeytrap/services"
 	"github.com/honeytrap/honeytrap/scripter"
 
 	_ "github.com/honeytrap/honeytrap/scripter/lua"
 	"github.com/BurntSushi/toml"
+	"github.com/honeytrap/honeytrap/pushers"
+	"github.com/pkg/errors"
 )
 
 type Config struct {
 	Scripters map[string]toml.Primitive `toml:"scripter"`
 }
 
-func TestEcho(t *testing.T) {
+func TestWithoutScript(t *testing.T) {
+	server, client := net.Pipe()
+	defer server.Close()
+	defer client.Close()
+
+	s := Generic().(*genericService)
+
+	//CanHandle the connection
+	go func(conn net.Conn) {
+		if err := s.Handle(nil, conn); err == nil {
+			t.Fatal(errors.New("Expected missing scripter error"))
+		}
+	}(server)
+}
+
+func TestSimpleWrite(t *testing.T) {
 	server, client := net.Pipe()
 	defer server.Close()
 	defer client.Close()
@@ -60,18 +76,34 @@ func TestEcho(t *testing.T) {
 		t.Error(err)
 	}
 
-	scripterFunc, ok := scripter.Get("lua")
+	scFunc, ok := scripter.Get("lua")
 	if !ok {
 		t.Errorf("failed to retrieve scripter func")
 	}
 
-	scripter, err := scripterFunc("lua", scripter.WithConfig(configLua.Scripters["lua"]))
+	sc, err := scFunc("lua", scripter.WithConfig(configLua.Scripters["lua"]))
 	if err != nil {
 		t.Error(err)
 	}
 
-	g := Generic(services.WithScripter("generic", scripter))
-	go g.Handle(context.TODO(), server)
+	s := Generic(services.WithScripter("generic", sc)).(*genericService)
+
+	c, _ := pushers.Dummy()
+	s.SetChannel(c)
+
+	//CanHandle the connection
+	go func(conn net.Conn) {
+		if ok := s.CanHandle(nil); !ok {
+			t.Fatal(errors.New("could not handle standard true"))
+		}
+	}(server)
+
+	//Handle the connection
+	go func(conn net.Conn) {
+		if err := s.Handle(nil, conn); err != nil {
+			t.Fatal(err)
+		}
+	}(server)
 
 	test := []byte("test")
 	if _, err := client.Write(test); err != nil {
