@@ -41,6 +41,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/honeytrap/honeytrap/pushers"
 	"github.com/pkg/errors"
+	"context"
 )
 
 type Config struct {
@@ -100,7 +101,7 @@ func TestSimpleWrite(t *testing.T) {
 
 	//Handle the connection
 	go func(conn net.Conn) {
-		if err := s.Handle(nil, conn); err != nil {
+		if err := s.Handle(context.TODO(), conn); err != nil {
 			t.Fatal(err)
 		}
 	}(server)
