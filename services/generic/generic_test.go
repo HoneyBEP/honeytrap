@@ -93,18 +93,10 @@ func TestSimpleWrite(t *testing.T) {
 	s.SetChannel(c)
 
 	//CanHandle the connection
-	go func(conn net.Conn) {
-		if ok := s.CanHandle(nil); !ok {
-			t.Fatal(errors.New("could not handle standard true"))
-		}
-	}(server)
+	go s.CanHandle(nil)
 
 	//Handle the connection
-	go func(conn net.Conn) {
-		if err := s.Handle(context.TODO(), conn); err != nil {
-			t.Fatal(err)
-		}
-	}(server)
+	go s.Handle(context.TODO(), server)
 
 	test := []byte("test")
 	if _, err := client.Write(test); err != nil {
@@ -121,5 +113,9 @@ func TestSimpleWrite(t *testing.T) {
 	if !bytes.Equal(test, buffer) {
 		t.Errorf("Test failed: got %+#v, expected %+#v", buffer, test)
 		return
+	}
+
+	if err := client.Quit(); err != nil {
+		t.Errorf("Error with Quit: %s", err.Error())
 	}
 }

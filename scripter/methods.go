@@ -44,7 +44,32 @@ func SetBasicMethods(s Scripter, c ScrConn, service string) {
 		}, service)
 	}
 
-	//In the script the function 'doLog(type, message)' can be called, with type = logging type and message the message
+	c.SetVoidFunction("channelSend", func() {
+		params, _ := c.GetParameters([]string{"data"}, service)
+		var data map[string]interface{}
+
+		json.Unmarshal([]byte(params["data"]), &data)
+
+		message := event.New()
+		for key, value := range data {
+			event.Custom(key, value)(message)
+		}
+		event.Custom("destination-ip", c.GetConn().LocalAddr().String())(message)
+		event.Custom("source-ip", c.GetConn().RemoteAddr().String())(message)
+
+		s.GetChannel().Send(message)
+	}, service)
+
+	c.SetStringFunction("getFolder", func() string {
+		return s.GetScriptFolder()
+	}, service)
+
+	setLogFunction(s, c, service)
+}
+
+// setLogFunction sets the log function within the scripter service on the connection
+//In the script the function 'doLog(type, message)' can be called, with type = logging type and message the message
+func setLogFunction(s Scripter, c ScrConn, service string) {
 	c.SetVoidFunction("doLog", func() {
 		params, _ := c.GetParameters([]string{"logType", "message"}, service)
 		logType := params["logType"]
@@ -74,26 +99,5 @@ func SetBasicMethods(s Scripter, c ScrConn, service string) {
 		if logType == "warning" {
 			log.Warning(message)
 		}
-	}, service)
-
-	c.SetVoidFunction("channelSend", func() {
-		params, _ := c.GetParameters([]string{"data"}, service)
-		var data map[string]interface{}
-
-		json.Unmarshal([]byte(params["data"]), &data)
-
-		message := event.New()
-		for key, value := range data {
-			event.Custom(key, value)(message)
-		}
-		event.Custom("destination-ip", c.GetConn().LocalAddr().String())(message)
-		event.Custom("source-ip", c.GetConn().RemoteAddr().String())(message)
-
-		s.GetChannel().Send(message)
-	}, service)
-
-	// getFolder function
-	c.SetStringFunction("getFolder", func() string {
-		return s.GetScriptFolder()
 	}, service)
 }
