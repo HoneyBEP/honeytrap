@@ -36,6 +36,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/pkg/errors"
 	"github.com/honeytrap/honeytrap/scripter"
+	_ "github.com/honeytrap/honeytrap/scripter/lua"
 	"github.com/honeytrap/honeytrap/services"
 	"bytes"
 	"context"
