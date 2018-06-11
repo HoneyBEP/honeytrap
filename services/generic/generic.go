@@ -69,6 +69,7 @@ func (s *genericService) SetScripter(scr scripter.Scripter) {
 	s.scr = scr
 }
 
+// SetChannel sets the channel for the service
 func (s *genericService) SetChannel(c pushers.Channel) {
 	s.c = c
 }
