@@ -35,6 +35,11 @@ import (
 	"net"
 	"github.com/BurntSushi/toml"
 	"github.com/pkg/errors"
+	"github.com/honeytrap/honeytrap/scripter"
+	"github.com/honeytrap/honeytrap/services"
+	"bytes"
+	"context"
+	"github.com/honeytrap/honeytrap/pushers"
 )
 
 type Config struct {
@@ -56,7 +61,6 @@ func TestWithoutScript(t *testing.T) {
 	}(server)
 }
 
-/*
 func TestSimpleWrite(t *testing.T) {
 	server, client := net.Pipe()
 	defer server.Close()
@@ -109,4 +113,3 @@ func TestSimpleWrite(t *testing.T) {
 		return
 	}
 }
-*/
