@@ -33,15 +33,8 @@ package generic
 import (
 	"testing"
 	"net"
-	"bytes"
-	"github.com/honeytrap/honeytrap/services"
-	"github.com/honeytrap/honeytrap/scripter"
-
-	_ "github.com/honeytrap/honeytrap/scripter/lua"
 	"github.com/BurntSushi/toml"
-	"github.com/honeytrap/honeytrap/pushers"
 	"github.com/pkg/errors"
-	"context"
 )
 
 type Config struct {
@@ -63,6 +56,7 @@ func TestWithoutScript(t *testing.T) {
 	}(server)
 }
 
+/*
 func TestSimpleWrite(t *testing.T) {
 	server, client := net.Pipe()
 	defer server.Close()
@@ -115,3 +109,4 @@ func TestSimpleWrite(t *testing.T) {
 		return
 	}
 }
+*/
