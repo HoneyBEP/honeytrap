@@ -76,6 +76,7 @@ func (l *luaScripter) SetAbTester(ab abtester.AbTester) {
 func (l *luaScripter) Init(service string) error {
 	fileNames, err := ioutil.ReadDir(fmt.Sprintf("%s/%s/%s", l.Folder, l.name, service))
 	if err != nil {
+		log.Errorf("%s", err)
 		return err
 	}
 

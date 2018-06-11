@@ -31,76 +31,62 @@
 package generic
 
 import (
-	"context"
-	"github.com/honeytrap/honeytrap/pushers"
-	"github.com/honeytrap/honeytrap/scripter"
-	"github.com/honeytrap/honeytrap/services"
-	"github.com/honeytrap/honeytrap/utils"
-	"github.com/op/go-logging"
+	"testing"
 	"net"
-	"fmt"
+	"bytes"
+	"context"
+	"github.com/honeytrap/honeytrap/services"
+	"github.com/honeytrap/honeytrap/scripter"
+
+	_ "github.com/honeytrap/honeytrap/scripter/lua"
+	"github.com/BurntSushi/toml"
 )
 
-var (
-	_   = services.Register("generic", Generic)
-	log = logging.MustGetLogger("services/generic")
-)
+type Config struct {
+	Scripters map[string]toml.Primitive `toml:"scripter"`
+}
 
-func Generic(options ...services.ServicerFunc) services.Servicer {
-	s := &genericService{}
+func TestEcho(t *testing.T) {
+	server, client := net.Pipe()
+	defer server.Close()
+	defer client.Close()
 
-	for _, o := range options {
-		o(s)
+	configString := "[scripter.lua]\r\n" +
+		"type=\"lua\"\r\n" +
+		"folder=\"../../test-scripts\"\r\n"
+
+	configLua := &Config{}
+	if _, err := toml.Decode(configString, configLua); err != nil {
+		t.Error(err)
 	}
 
-	return s
-}
-
-type genericService struct {
-	scr scripter.Scripter
-	c   pushers.Channel
-}
-
-func (s *genericService) CanHandle(payload []byte) bool {
-	return s.scr.CanHandle("generic", string(payload))
-}
-
-func (s *genericService) SetScripter(scr scripter.Scripter) {
-	s.scr = scr
-}
-
-func (s *genericService) SetChannel(c pushers.Channel) {
-	s.c = c
-}
-
-// Handle handles the request
-func (s *genericService) Handle(ctx context.Context, conn net.Conn) error {
-	buffer := make([]byte, 4096)
-	pConn := utils.PeekConnection(conn)
-	n, _ := pConn.Peek(buffer)
-
-	// Add the go methods that have to be exposed to the scripts
-	if s.scr == nil {
-		return fmt.Errorf("%s","undefined scripter")
+	scripterFunc, ok := scripter.Get("lua")
+	if !ok {
+		t.Errorf("failed to retrieve scripter func")
 	}
-	connW := s.scr.GetConnection("generic", pConn)
 
-	s.setMethods(connW)
-
-	for {
-		//Handle incoming message with the scripter
-		response, err := connW.Handle(string(buffer[:n]))
-		if err != nil {
-			return err
-		} else if response == "_return" {
-			// Return called from script
-			return nil
-		}
-
-		//Write message to the connection
-		if _, err := conn.Write([]byte(response)); err != nil {
-			return err
-		}
+	scripter, err := scripterFunc("lua", scripter.WithConfig(configLua.Scripters["lua"]))
+	if err != nil {
+		t.Error(err)
 	}
-	return nil
+
+	g := Generic(services.WithScripter("generic", scripter))
+	go g.Handle(context.TODO(), server)
+
+	test := []byte("test")
+	if _, err := client.Write(test); err != nil {
+		t.Error(err)
+	}
+
+	buffer := make([]byte, 255)
+	if n, err := client.Read(buffer[:]); err != nil {
+		t.Error(err)
+	} else {
+		buffer = buffer[:n]
+	}
+
+	if !bytes.Equal(test, buffer) {
+		t.Errorf("Test failed: got %+#v, expected %+#v", buffer, test)
+		return
+	}
 }
