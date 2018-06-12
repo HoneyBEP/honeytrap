@@ -78,7 +78,6 @@ func (s *genericService) SetChannel(c pushers.Channel) {
 func (s *genericService) Handle(ctx context.Context, conn net.Conn) error {
 	buffer := make([]byte, 4096)
 	pConn := utils.PeekConnection(conn)
-	n, _ := pConn.Peek(buffer)
 
 	// Add the go methods that have to be exposed to the scripts
 	if s.scr == nil {
@@ -90,6 +89,7 @@ func (s *genericService) Handle(ctx context.Context, conn net.Conn) error {
 
 	for {
 		//Handle incoming message with the scripter
+		n, _ := pConn.Peek(buffer)
 		response, err := connW.Handle(string(buffer[:n]))
 		if err != nil {
 			return err
