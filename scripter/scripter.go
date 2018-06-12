@@ -45,7 +45,7 @@ var (
 )
 var log = logging.MustGetLogger("scripter")
 
-const cleanupInterval = 300
+const CleanupInterval = 300 //Time in seconds
 
 //Register the scripter instance
 func Register(key string, fn func(string, ...ScripterFunc) (Scripter, error)) func(string, ...ScripterFunc) (Scripter, error) {
@@ -164,8 +164,7 @@ func ReloadAllScripters(scripters map[string]Scripter) {
 // When not used for over an hour, the connection is removed from the list and therefor collected by the garbage
 // collector, clearing unused memory space.
 func SetConnectionChecker(scripters map[string]Scripter) {
-	ticker := time.NewTicker(cleanupInterval * time.Second)
-	connectionChecker := make(chan struct{})
+	ticker := time.NewTicker(CleanupInterval * time.Second)
 	go func() {
 		for {
 			select {
@@ -173,9 +172,6 @@ func SetConnectionChecker(scripters map[string]Scripter) {
 				for _, scripter := range scripters {
 					scripter.CleanConnections()
 				}
-			case <- connectionChecker:
-				ticker.Stop()
-				return
 			}
 		}
 	}()

@@ -19,7 +19,7 @@ var (
 	_ = scripter.Register("lua", New)
 )
 
-const cleanupTimer = 60
+const CleanupTimer = 60
 
 // New creates a lua scripter instance that handles the connection to all scripts
 // A list where all scripts are stored in is generated
@@ -160,8 +160,7 @@ func (l *luaScripter) GetScriptFolder() string {
 // CleanConnections Check all connections removing all that haven't been used for more than 60 minutes to open up memory
 func (l *luaScripter) CleanConnections() {
 	for key, connection := range l.connections {
-		log.Infof("Checking...")
-		if time.Since(connection.GetLastUsed()) > cleanupTimer * time.Minute { //The connection hasn't been used for more than 60 minutes
+		if time.Since(connection.GetLastUsed()) > CleanupTimer * time.Minute { //The connection hasn't been used for more than 60 minutes
 			delete(l.connections, key)
 		}
 	}
