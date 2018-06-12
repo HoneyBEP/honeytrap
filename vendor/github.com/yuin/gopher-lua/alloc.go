@@ -51,7 +51,7 @@ func newAllocator(size int) *allocator {
 }
 
 func (al *allocator) LNumber2I(v LNumber) LValue {
-	if v >= 0 && v < preloadLimit && float64(v) == float64(int64(v)) {
+	if v >= 0 && float64(v) < preloadLimit && float64(v) == float64(int64(v)) {
 		return al.preloads[int(v)]
 	}
 	if al.top == len(al.nptrs)-1 {
