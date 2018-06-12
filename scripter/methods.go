@@ -92,6 +92,7 @@ func SetBasicMethods(s Scripter, c ScrConn, service string) {
 		s.GetChannel().Send(message)
 	}, service)
 
+	// getFolder function
 	c.SetStringFunction("getFolder", func() string {
 		return s.GetScriptFolder()
 	}, service)
