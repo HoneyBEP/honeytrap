@@ -19,7 +19,7 @@ var (
 	_ = scripter.Register("lua", New)
 )
 
-const CleanupTimer = 60
+const CleanupTimer = 60 //Time in minutes
 
 // New creates a lua scripter instance that handles the connection to all scripts
 // A list where all scripts are stored in is generated
