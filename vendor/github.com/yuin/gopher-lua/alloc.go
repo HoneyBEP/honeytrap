@@ -11,7 +11,7 @@ type iface struct {
 	word unsafe.Pointer
 }
 
-const preloadLimit LNumber = 128
+const preloadLimit float64 = 128
 
 var _fv float64
 var _uv uintptr
@@ -25,7 +25,7 @@ type allocator struct {
 	fptrs       []float64
 	fheader     *reflect.SliceHeader
 	itabLNumber unsafe.Pointer
-	preloads    [int(128)]LValue
+	preloads    [int(preloadLimit)]LValue
 }
 
 func newAllocator(size int) *allocator {
