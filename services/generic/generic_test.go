@@ -54,6 +54,7 @@ type Config struct {
 	Scripters map[string]toml.Primitive `toml:"scripter"`
 }
 
+// TestWithoutScript checks whether a wrong initialization of the generic service gives an error
 func TestWithoutScript(t *testing.T) {
 	server, client := net.Pipe()
 	defer server.Close()
@@ -69,21 +70,7 @@ func TestWithoutScript(t *testing.T) {
 	}(server)
 }
 
-func TestRequestMethod(t *testing.T) {
-	server, client := net.Pipe()
-	defer server.Close()
-	defer client.Close()
-
-	s := Generic().(*genericService)
-
-	//CanHandle the connection
-	go func(conn net.Conn) {
-		if err := s.Handle(nil, conn); err == nil {
-			t.Fatal(errors.New("Expected missing scripter error"))
-		}
-	}(server)
-}
-
+// TestSimpleWrite checks whether a simple write from the client gives a successful response
 func TestSimpleWrite(t *testing.T) {
 	server, client := net.Pipe()
 	defer server.Close()
@@ -151,6 +138,7 @@ func TestSimpleWrite(t *testing.T) {
 	}
 }
 
+// TestHTTPRequest checks whether a HTTP request will response accordingly
 func TestHTTPRequest(t *testing.T) {
 	server, client := net.Pipe()
 	defer server.Close()
