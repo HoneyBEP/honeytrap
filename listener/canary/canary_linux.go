@@ -220,6 +220,7 @@ func (c *Canary) handleUDP(eh *ethernet.Frame, iph *ipv4.Header, data []byte) er
 				SensorCanary,
 				EventCategoryUDP,
 
+				event.Protocol("udp"),
 				event.SourceHardwareAddr(eh.Source),
 				event.DestinationHardwareAddr(eh.Destination),
 
@@ -357,6 +358,8 @@ func (c *Canary) handleTCP(eh *ethernet.Frame, iph *ipv4.Header, data []byte) er
 	// in race conditions (eg from socket) and from handleTCP function
 	state.m.Lock()
 	defer state.m.Unlock()
+
+	state.t = time.Now()
 
 	// https://tools.ietf.org/html/rfc793
 	// page 65
@@ -522,6 +525,7 @@ func (c *Canary) handleTCP(eh *ethernet.Frame, iph *ipv4.Header, data []byte) er
 					CanaryOptions,
 					EventCategoryTCP,
 					event.ServiceStarted,
+					event.Protocol("tcp"),
 					event.SourceHardwareAddr(eh.Source),
 					event.DestinationHardwareAddr(eh.Destination),
 					event.SourceIP(state.SrcIP),
@@ -981,13 +985,17 @@ func updateTCPChecksum(iph *ipv4.Header, data []byte) {
 // send will queue a packet for sending
 func (c *Canary) transmit(fd int32) error {
 	for {
-		len, err := c.buffer.ReadUint32()
+		buff := [2]byte{}
+
+		_, err := c.buffer.ReadAndMaybeAdvance(buff[:], true)
 		if err == io.EOF {
 			break
 		} else if err != nil {
 			log.Errorf("Error reading buffer 1: %s", err)
 			return err
 		}
+
+		len := uint32(buff[0])<<8 + uint32(buff[1])
 
 		buffer := make([]byte, len)
 		n, err := c.buffer.Read(buffer)
@@ -1052,14 +1060,16 @@ func (c *Canary) Start(ctx context.Context) error {
 						// no packets received
 					} else if eh, err := ethernet.Parse(buffer[:n]); err != nil {
 					} else if eh.Type == EthernetTypeARP {
-						c.handleARP(eh.Payload[:])
+						data := make([]byte, len(eh.Payload))
+						copy(data, eh.Payload[:])
+						c.handleARP(data)
 					} else if eh.Type == EthernetTypeIPv4 {
 						if iph, err := ipv4.Parse(eh.Payload[:]); err != nil {
 							log.Debugf("Error parsing ip header: %s", err.Error())
 						} else {
-							data := iph.Payload[:]
+							data := make([]byte, len(iph.Payload))
+							copy(data, iph.Payload[:])
 
-							// eh.Source, eh.Destination
 							switch iph.Protocol {
 							case 1 /* icmp */ :
 								c.handleICMP(eh, iph, data)

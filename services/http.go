@@ -36,12 +36,14 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"strings"
 
 	"github.com/honeytrap/honeytrap/event"
 	"github.com/honeytrap/honeytrap/pushers"
+	"github.com/honeytrap/honeytrap/scripter"
 )
 
 var (
@@ -70,8 +72,15 @@ type httpServiceConfig struct {
 type httpService struct {
 	httpServiceConfig
 
+	scr scripter.Scripter
 	c pushers.Channel
 }
+
+//type httpScripter struct {
+//	conn net.Conn
+//	req *Request
+//	body []byte
+//}
 
 func (s *httpService) CanHandle(payload []byte) bool {
 	if bytes.HasPrefix(payload, []byte("GET")) {
@@ -95,6 +104,10 @@ func (s *httpService) CanHandle(payload []byte) bool {
 	}
 
 	return false
+}
+
+func (s *httpService) SetScripter(scr scripter.Scripter) {
+	s.scr = scr
 }
 
 func (s *httpService) SetChannel(c pushers.Channel) {
@@ -128,6 +141,29 @@ func (s *httpService) Handle(ctx context.Context, conn net.Conn) error {
 			return err
 		}
 
+		defer req.Body.Close()
+
+		body := make([]byte, 1024)
+
+		n, err := req.Body.Read(body)
+		if err == io.EOF {
+		} else if err != nil {
+			return err
+		}
+
+		sConn := s.scr.GetConnection("http", conn)
+		sConn.SetStringFunction("getRequestURL", func() string { return req.URL.String() })
+		sConn.SetStringFunction("getRequestMethod", func() string { return req.Method })
+
+		body = body[:n]
+
+		responseString, err := sConn.Handle(string(body))
+		if err != nil {
+			return err
+		}
+
+		io.Copy(ioutil.Discard, req.Body)
+
 		s.c.Send(event.New(
 			EventOptions,
 			event.Category("http"),
@@ -138,6 +174,9 @@ func (s *httpService) Handle(ctx context.Context, conn net.Conn) error {
 			event.Custom("http.proto", req.Proto),
 			event.Custom("http.host", req.Host),
 			event.Custom("http.url", req.URL.String()),
+			event.Custom("response", responseString),
+			// event.Custom("http.response", bodyResp),
+			event.Payload(body),
 			Headers(req.Header),
 			Cookies(req.Cookies()),
 		))
@@ -152,6 +191,8 @@ func (s *httpService) Handle(ctx context.Context, conn net.Conn) error {
 			Header: http.Header{
 				"Server": []string{s.Server},
 			},
+			Body:          ioutil.NopCloser(bytes.NewBufferString(responseString)),
+			ContentLength: int64(len(responseString)),
 		}
 
 		if err := resp.Write(conn); err != nil {

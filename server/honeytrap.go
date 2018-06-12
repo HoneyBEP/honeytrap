@@ -33,10 +33,10 @@ package server
 import (
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -47,13 +47,17 @@ import (
 
 	"github.com/honeytrap/honeytrap/cmd"
 	"github.com/honeytrap/honeytrap/config"
+	"github.com/honeytrap/honeytrap/scripter"
 	"github.com/honeytrap/honeytrap/web"
 
 	"github.com/honeytrap/honeytrap/director"
+	// Import your directors here.
 	_ "github.com/honeytrap/honeytrap/director/forward"
 	_ "github.com/honeytrap/honeytrap/director/lxc"
 	// _ "github.com/honeytrap/honeytrap/director/qemu"
-	// Import your directors here.
+
+	// Import your scripters here.
+	_ "github.com/honeytrap/honeytrap/scripter/lua"
 
 	"github.com/honeytrap/honeytrap/pushers"
 	"github.com/honeytrap/honeytrap/pushers/eventbus"
@@ -62,6 +66,7 @@ import (
 	_ "github.com/honeytrap/honeytrap/services/elasticsearch"
 	_ "github.com/honeytrap/honeytrap/services/ethereum"
 	_ "github.com/honeytrap/honeytrap/services/ftp"
+	_ "github.com/honeytrap/honeytrap/services/generic"
 	_ "github.com/honeytrap/honeytrap/services/ipp"
 	_ "github.com/honeytrap/honeytrap/services/redis"
 	_ "github.com/honeytrap/honeytrap/services/smtp"
@@ -81,16 +86,21 @@ import (
 	"github.com/honeytrap/honeytrap/event"
 	"github.com/honeytrap/honeytrap/server/profiler"
 
-	_ "github.com/honeytrap/honeytrap/pushers/console"       // Registers stdout backend.
-	_ "github.com/honeytrap/honeytrap/pushers/elasticsearch" // Registers elasticsearch backend.
-	_ "github.com/honeytrap/honeytrap/pushers/file"          // Registers file backend.
-	_ "github.com/honeytrap/honeytrap/pushers/kafka"         // Registers kafka backend.
-	_ "github.com/honeytrap/honeytrap/pushers/marija"        // Registers marija backend.
-	_ "github.com/honeytrap/honeytrap/pushers/raven"         // Registers raven backend.
-	_ "github.com/honeytrap/honeytrap/pushers/slack"         // Registers slack backend.
-	_ "github.com/honeytrap/honeytrap/pushers/splunk"        // Registers splunk backend.
+	_ "github.com/honeytrap/honeytrap/pushers/console"
+	_ "github.com/honeytrap/honeytrap/pushers/elasticsearch"
+	_ "github.com/honeytrap/honeytrap/pushers/file"
+	_ "github.com/honeytrap/honeytrap/pushers/kafka"
+	_ "github.com/honeytrap/honeytrap/pushers/marija"
+	_ "github.com/honeytrap/honeytrap/pushers/pulsar"
+	_ "github.com/honeytrap/honeytrap/pushers/rabbitmq"
+	_ "github.com/honeytrap/honeytrap/pushers/raven"
+	_ "github.com/honeytrap/honeytrap/pushers/slack"
+	_ "github.com/honeytrap/honeytrap/pushers/splunk"
 
-	logging "github.com/op/go-logging"
+	"github.com/op/go-logging"
+	"github.com/honeytrap/honeytrap/utils"
+	"encoding/json"
+	"github.com/honeytrap/honeytrap/abtester"
 )
 
 var log = logging.MustGetLogger("honeytrap/server")
@@ -111,7 +121,11 @@ type Honeytrap struct {
 
 	dataDir string
 
-	matchers []*ServiceMap
+	// Maps a port and a protocol to an array of pointers to services
+	tcpPorts map[int][]*ServiceMap
+	udpPorts map[int][]*ServiceMap
+
+	scripters map[string] scripter.Scripter
 }
 
 // New returns a new instance of a Honeytrap struct.
@@ -122,12 +136,16 @@ func New(options ...OptionFn) (*Honeytrap, error) {
 	// Initialize all channels within the provided config.
 	conf := &config.Default
 
+
+
 	h := &Honeytrap{
 		config:   conf,
 		director: director.MustDummy(),
 		bus:      bus,
 		profiler: profiler.Dummy(),
 	}
+
+
 
 	for _, fn := range options {
 		if err := fn(h); err != nil {
@@ -156,53 +174,84 @@ func EventServiceStarted(service string) event.Event {
 func (hc *Honeytrap) PrepareRun() {
 }
 
+// Wraps a Servicer, adding some metadata
 type ServiceMap struct {
-	Matcher func(net.Addr) bool
-
 	Service services.Servicer
 
 	Name string
 	Type string
 }
 
-func (hc *Honeytrap) findService(conn net.Conn) *ServiceMap {
-	// Match on address first
-	for _, sm := range hc.matchers {
-		if !sm.Matcher(conn.LocalAddr()) {
-			continue
+/* Finds a service that can handle the given connection.
+ * The service is picked (among those configured for the given port) as follows:
+ *
+ *     If there are no services for the given port, return an error
+ *     If there is only one service, pick it
+ *     For each service (as sorted in the config file):
+ *         - If it does not implement CanHandle, pick it
+ *         - If it implements CanHandle, peek the connection and pass the peeked
+ *           data to CanHandle. If it returns true, pick it
+ */
+func (hc *Honeytrap) findService(conn net.Conn) (*ServiceMap, net.Conn, error) {
+	localAddr := conn.LocalAddr()
+	var port int
+	var serviceCandidates []*ServiceMap
+	// Todo(capacitorset): implement port "any"?
+	switch a := localAddr.(type) {
+	case *net.TCPAddr:
+		port = a.Port
+		tmp, ok := hc.tcpPorts[port]
+		if !ok {
+			return nil, nil, fmt.Errorf("no services for the given port")
 		}
-		return sm
+		serviceCandidates = tmp // prevent variable shadowing and "unused variable" error
+	case *net.UDPAddr:
+		port = a.Port
+		tmp, ok := hc.udpPorts[port]
+		if !ok {
+			return nil, nil, fmt.Errorf("no services for the given port")
+		}
+		serviceCandidates = tmp
+	default:
+		return nil, nil, fmt.Errorf("unknown address type %T", a)
 	}
 
-	log.Debug("Couldn't match on addr, peeking connection %s => %s", conn.RemoteAddr(), conn.LocalAddr())
+	if len(serviceCandidates) == 1 {
+		return serviceCandidates[0], conn, nil
+	}
 
-	// wrap connection in a connection with deadlines
-	conn = TimeoutConn(conn, time.Second*30)
-	pc := PeekConnection(conn)
-
+	peekUninitialized := true
+	var tConn net.Conn
+	var pConn *utils.PeekConn
+	var n int
 	buffer := make([]byte, 1024)
-
-	n, err := pc.Peek(buffer)
-	if err == io.EOF {
-		return nil
-	} else if err != nil {
-		log.Errorf(color.RedString("Could not peek bytes: %s", err.Error()))
-		return nil
-	}
-
-	for _, sm := range hc.matchers {
-		service := sm.Service
-
-		if ch, ok := service.(services.CanHandlerer); !ok {
-			// CanHandle not supported
-		} else if !ch.CanHandle(buffer[:n]) {
-			// Service won't support payload
-		} else {
-			return sm
+	for _, service := range serviceCandidates {
+		ch, ok := service.Service.(services.CanHandlerer)
+		if !ok {
+			// Service does not implement CanHandle, assume it can handle the connection
+			return service, conn, nil
+		}
+		// Service implements CanHandle, initialize it if needed and run the checks
+		if peekUninitialized {
+			// wrap connection in a connection with deadlines
+			tConn = TimeoutConn(conn, time.Second*30)
+			pConn = utils.PeekConnection(tConn)
+			log.Debug("Peeking connection %s => %s", conn.RemoteAddr(), conn.LocalAddr())
+			_n, err := pConn.Peek(buffer)
+			n = _n // avoid silly "variable not used" warning
+			if err != nil {
+				return nil, nil, fmt.Errorf("could not peek bytes: %s", err.Error())
+			}
+			peekUninitialized = false
+		}
+		if ch.CanHandle(buffer[:n]) {
+			// Service supports payload
+			return service, pConn, nil
 		}
 	}
-
-	return nil
+	// There are some services for that port, but non can handle the connection.
+	// Let the caller deal with it.
+	return nil, nil, fmt.Errorf("No suitable service for the given port")
 }
 
 func (hc *Honeytrap) heartbeat() {
@@ -222,21 +271,30 @@ func (hc *Honeytrap) heartbeat() {
 	}
 }
 
-func ToAddr(port string) net.Addr {
-	parts := strings.Split(port, "/")
+// Addr, proto, port, error
+func ToAddr(input string) (net.Addr, string, int, error) {
+	parts := strings.Split(input, "/")
 
 	if len(parts) != 2 {
-		return nil
+		return nil, "", 0, fmt.Errorf("wrong format (needs to be \"protocol/port\")")
 	}
 
-	if strings.ToLower(parts[0]) == "tcp" {
-		addr, _ := net.ResolveTCPAddr("tcp", ":"+parts[1])
-		return addr
-	} else if strings.ToLower(parts[0]) == "udp" {
-		addr, _ := net.ResolveUDPAddr("udp", ":"+parts[1])
-		return addr
-	} else {
-		return nil
+	proto := parts[0]
+	portStr := parts[1]
+	portInt16, err := strconv.ParseUint(portStr, 10, 16)
+	if err != nil {
+		return nil, "", 0, fmt.Errorf("error parsing port value: %s", err.Error())
+	}
+	port := int(portInt16)
+	switch proto {
+	case "tcp":
+		addr, err := net.ResolveTCPAddr("tcp", ":"+portStr)
+		return addr, proto, port, err
+	case "udp":
+		addr, err := net.ResolveUDPAddr("udp", ":"+portStr)
+		return addr, proto, port, err
+	default:
+		return nil, "", 0, fmt.Errorf("unknown protocol %s", proto)
 	}
 }
 
@@ -248,6 +306,17 @@ func IsTerminal(f *os.File) bool {
 	}
 
 	return false
+}
+
+func (hc *Honeytrap) HandleRequests(message []byte) ([]byte, error) {
+	var js map[string]interface{}
+	json.Unmarshal(message, &js)
+
+	if sType, ok := js["type"]; ok && sType == "scripter" {
+		return scripter.HandleRequests(hc.scripters, message)
+	}
+
+	return nil, nil
 }
 
 // Run will start honeytrap
@@ -272,7 +341,7 @@ func (hc *Honeytrap) Run(ctx context.Context) {
 
 	hc.profiler.Start()
 
-	w, err := web.New(
+	web, err := web.New(
 		web.WithEventBus(hc.bus),
 		web.WithDataDir(hc.dataDir),
 		web.WithConfig(hc.config.Web),
@@ -280,8 +349,8 @@ func (hc *Honeytrap) Run(ctx context.Context) {
 	if err != nil {
 		log.Error("Error parsing configuration of web: %s", err.Error())
 	}
-
-	w.Start()
+	web.RegisterHandleRequest(hc.HandleRequests)
+	web.Start()
 
 	channels := map[string]pushers.Channel{}
 	// sane defaults!
@@ -365,7 +434,7 @@ func (hc *Honeytrap) Run(ctx context.Context) {
 		}
 
 		if x.Type == "" {
-			log.Error("Error parsing configuration of service %s: type not set", key)
+			log.Error("Error parsing configuration of director %s: type not set", key)
 			continue
 		}
 
@@ -381,6 +450,48 @@ func (hc *Honeytrap) Run(ctx context.Context) {
 		}
 	}
 
+	// initialize abtester
+	ab, err := abtester.New("Honeytrap", hc.config.AbTester)
+	if err != nil {
+		log.Errorf("Error initializing abtester: %s", err)
+	}
+
+	// initialize scripters
+	scripters := map[string]scripter.Scripter{}
+	availableScripterNames := scripter.GetAvailableScripterNames()
+
+	for key, s := range hc.config.Scripters {
+		x := struct {
+			Type string `toml:"type"`
+		}{}
+
+		err := toml.PrimitiveDecode(s, &x)
+		if err != nil {
+			log.Error("Error parsing configuration of scripter: %s", err.Error())
+			continue
+		}
+
+		if x.Type == "" {
+			log.Error("Error parsing configuration of scripter %s: type not set", key)
+			continue
+		}
+
+		if scripterFunc, ok := scripter.Get(x.Type); !ok {
+			log.Error("Scripter type=%s not supported on platform (scripter=%s). Available scripters: %s", x.Type, key, strings.Join(availableScripterNames, ", "))
+		} else if scr, err := scripterFunc(
+			key,
+			scripter.WithConfig(s),
+			scripter.WithChannel(hc.bus),
+			scripter.WithAbTester(ab),
+		); err != nil {
+			log.Fatalf("Error initializing scripter %s(%s): %s", key, x.Type, err)
+		} else {
+			scripters[key] = scr
+		}
+	}
+
+	hc.scripters = scripters
+
 	// initialize listener
 	x := struct {
 		Type string `toml:"type"`
@@ -395,54 +506,34 @@ func (hc *Honeytrap) Run(ctx context.Context) {
 		fmt.Println(color.RedString("Listener not set"))
 	}
 
-	listenerFunc, ok := listener.Get(x.Type)
-	if !ok {
-		fmt.Println(color.RedString("Listener %s not support on platform", x.Type))
-		return
-	}
-
-	l, err := listenerFunc(
-		listener.WithChannel(hc.bus),
-		listener.WithConfig(hc.config.Listener),
-	)
-	if err != nil {
-		log.Fatalf("Error initializing listener %s: %s", x.Type, err)
-	}
-
-	for _, s := range hc.config.Ports {
-		x := struct {
-			Port string `toml:"port"`
-		}{}
-
-		if err := toml.PrimitiveDecode(s, &x); err != nil {
-			log.Error("Error parsing configuration of generic ports: %s", err.Error())
-			continue
-		}
-
-		if addr := ToAddr(x.Port); addr == nil {
-		} else if a, ok := l.(listener.AddAddresser); !ok {
-		} else {
-			a.AddAddress(addr)
-
-			log.Infof("Configured generic port %s/%s", addr.Network(), addr.String())
-		}
-	}
-
 	var enabledDirectorNames []string
 	for key := range directors {
 		enabledDirectorNames = append(enabledDirectorNames, key)
 	}
 
+	var enabledScripterNames []string
+	for key := range scripters {
+		enabledScripterNames = append(enabledScripterNames, key)
+	}
+
+	serviceList := make(map[string]*ServiceMap)
+	isServiceUsed := make(map[string]bool) // Used to check that every service is used by a port
 	// same for proxies
 	for key, s := range hc.config.Services {
 		x := struct {
 			Type     string `toml:"type"`
 			Director string `toml:"director"`
+			Scripter string `toml:"scripter"`
 			Port     string `toml:"port"`
 		}{}
 
 		if err := toml.PrimitiveDecode(s, &x); err != nil {
 			log.Error("Error parsing configuration of service %s: %s", key, err.Error())
+			continue
+		}
+
+		if x.Port != "" {
+			log.Error("Ports in services are deprecated, add services to ports instead")
 			continue
 		}
 
@@ -460,6 +551,14 @@ func (hc *Honeytrap) Run(ctx context.Context) {
 			continue
 		}
 
+		if x.Scripter == "" {
+		} else if scr, ok := scripters[x.Scripter]; ok {
+			options = append(options, services.WithScripter(key, scr))
+		} else {
+			log.Error(color.RedString("Could not find scripter=%s for service=%s. Enabled scripters: %s", x.Scripter, key, strings.Join(enabledScripterNames, ", ")))
+			continue
+		}
+
 		fn, ok := services.Get(x.Type)
 		if !ok {
 			log.Error(color.RedString("Could not find type %s for service %s", x.Type, key))
@@ -467,32 +566,115 @@ func (hc *Honeytrap) Run(ctx context.Context) {
 		}
 
 		service := fn(options...)
-
-		addr := ToAddr(x.Port)
-		if addr == nil {
-		} else if a, ok := l.(listener.AddAddresser); !ok {
-		} else {
-			a.AddAddress(addr)
-
-			log.Infof("Configured service port %s/%s", addr.Network(), addr.String())
-		}
-
-		matcher := noMatcher
-
-		if ta, ok := addr.(*net.TCPAddr); ok {
-			matcher = tcpMatcher(ta.Port)
-		} else if ua, ok := addr.(*net.UDPAddr); ok {
-			matcher = udpMatcher(ua.Port)
-		}
-
-		hc.matchers = append(hc.matchers, &ServiceMap{
+		serviceList[key] = &ServiceMap{
+			Service: service,
 			Name:    key,
 			Type:    x.Type,
-			Matcher: matcher,
-			Service: service,
-		})
-
+		}
+		isServiceUsed[key] = false
 		log.Infof("Configured service %s (%s)", x.Type, key)
+	}
+
+	listenerFunc, ok := listener.Get(x.Type)
+	if !ok {
+		fmt.Println(color.RedString("Listener %s not support on platform", x.Type))
+		return
+	}
+
+	l, err := listenerFunc(
+		listener.WithChannel(hc.bus),
+		listener.WithConfig(hc.config.Listener),
+	)
+	if err != nil {
+		log.Fatalf("Error initializing listener %s: %s", x.Type, err)
+	}
+
+	hc.tcpPorts = make(map[int][]*ServiceMap)
+	hc.udpPorts = make(map[int][]*ServiceMap)
+	for _, s := range hc.config.Ports {
+		x := struct {
+			Port     string   `toml:"port"`
+			Ports    []string `toml:"ports"`
+			Services []string `toml:"services"`
+		}{}
+
+		if err := toml.PrimitiveDecode(s, &x); err != nil {
+			log.Error("Error parsing configuration of generic ports: %s", err.Error())
+			continue
+		}
+
+		var ports []string
+		if x.Ports != nil {
+			ports = x.Ports
+		}
+		if x.Port != "" {
+			ports = append(ports, x.Port)
+		}
+		if x.Port != "" && x.Ports != nil {
+			log.Warning("Both \"port\" and \"ports\" were defined, this can be confusing")
+		} else if x.Port == "" && x.Ports == nil {
+			log.Error("Neither \"port\" nor \"ports\" were defined")
+			continue
+		}
+
+		if len(x.Services) == 0 {
+			log.Warning("No services defined for port(s) " + strings.Join(ports, ", "))
+		}
+
+		for _, portStr := range ports {
+			addr, proto, port, err := ToAddr(portStr)
+			if err != nil {
+				log.Error("Error parsing port string: %s", err.Error())
+				continue
+			}
+			if addr == nil {
+				log.Error("Failed to bind: addr is nil")
+				continue
+			}
+
+			// Get the services from their names
+			var servicePtrs []*ServiceMap
+			for _, serviceName := range x.Services {
+				ptr, ok := serviceList[serviceName]
+				if !ok {
+					log.Error("Unknown service '%s' in ports", serviceName)
+				}
+				servicePtrs = append(servicePtrs, ptr)
+				isServiceUsed[serviceName] = true
+			}
+			switch proto {
+			case "tcp":
+				if _, ok := hc.tcpPorts[port]; ok {
+					log.Error("Port tcp/%d was already defined, ignoring the newer definition", port)
+					continue
+				}
+				hc.tcpPorts[port] = servicePtrs
+			case "udp":
+				if _, ok := hc.udpPorts[port]; ok {
+					log.Error("Port udp/%d was already defined, ignoring the newer definition", port)
+					continue
+				}
+				hc.udpPorts[port] = servicePtrs
+			default:
+				log.Errorf("Unknown protocol %s", proto)
+				continue
+			}
+
+			a, ok := l.(listener.AddAddresser)
+			if !ok {
+				log.Error("Listener error")
+				continue
+			}
+			a.AddAddress(addr)
+
+			log.Infof("Configured port %s/%s", addr.Network(), addr.String())
+		}
+	}
+
+	for name, isUsed := range isServiceUsed {
+		if !isUsed {
+			log.Warningf("Service %s is defined but not used", name)
+		}
 	}
 
 	if err := l.Start(ctx); err != nil {
@@ -586,15 +768,22 @@ func (hc *Honeytrap) handle(conn net.Conn) {
 	log.Debug("Accepted connection for %s => %s", conn.RemoteAddr(), conn.LocalAddr())
 	defer log.Debug("Disconnected connection for %s => %s", conn.RemoteAddr(), conn.LocalAddr())
 
-	sm := hc.findService(conn)
+	/* conn is the original connection. newConn can be either the same
+	 * connection, or a wrapper in the form of a PeekConnection.
+	 */
+	sm, newConn, err := hc.findService(conn)
 	if sm == nil {
+		log.Debug("No suitable handler for %s => %s: %s", conn.RemoteAddr(), conn.LocalAddr(), err.Error())
 		return
 	}
 
 	log.Debug("Handling connection for %s => %s %s(%s)", conn.RemoteAddr(), conn.LocalAddr(), sm.Name, sm.Type)
 
+	//
+	// Call suitable Lua handling methods
+	//
 	ctx := context.Background()
-	if err := sm.Service.Handle(ctx, conn); err != nil {
+	if err := sm.Service.Handle(ctx, newConn); err != nil {
 		log.Errorf(color.RedString("Error handling service: %s: %s", sm.Name, err.Error()))
 	}
 }
