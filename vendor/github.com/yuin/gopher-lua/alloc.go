@@ -25,7 +25,7 @@ type allocator struct {
 	fptrs       []float64
 	fheader     *reflect.SliceHeader
 	itabLNumber unsafe.Pointer
-	preloads    [int(preloadLimit)]LValue
+	preloads    [int(128)]LValue
 }
 
 func newAllocator(size int) *allocator {
