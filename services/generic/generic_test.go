@@ -44,7 +44,6 @@ import (
 	"net/http/httptest"
 	"bufio"
 	"net/http"
-	"sync"
 	"io/ioutil"
 	"encoding/json"
 	"reflect"
