@@ -50,6 +50,7 @@ type Config struct {
 	AbTester toml.Primitive `toml:"abtester"`
 }
 
+// TestMain is the setup function for the global luaScripter
 func TestMain(m *testing.M) {
 	configString := "[scripter.lua]\r\n" +
 		"type=\"lua\"\r\n" +
@@ -78,12 +79,14 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+// TestNew tests the success of a new luaScripter without an error
 func TestNew(t *testing.T) {
-	if _, err := New("lau"); err != nil {
+	if _, err := New("lua"); err != nil {
 		t.Fatal(err)
 	}
 }
 
+// TestNew2 tests the success of a new luaScripter with config without an error
 func TestNew2(t *testing.T) {
 	configString := "[scripter.lua]\r\n" +
 		"type=\"lua\"\r\n" +
@@ -99,6 +102,7 @@ func TestNew2(t *testing.T) {
 	}
 }
 
+// TestLuaScripter_Init tests whether the init function does not return an error with scripts
 func TestLuaScripter_Init(t *testing.T) {
 	configString := "[scripter.lua]\r\n" +
 		"type=\"lua\"\r\n" +
@@ -114,11 +118,12 @@ func TestLuaScripter_Init(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := luaScripter.Init("generic"); err != nil {
+	if err := luaScripter.Init("test"); err != nil {
 		t.Fatal(err)
 	}
 }
 
+// TestLuaScripter_Init2 tests the error given when a luaScripter is made without config
 func TestLuaScripter_Init2(t *testing.T) {
 	luaScripter, err := New("lua")
 	if err != nil {
@@ -130,6 +135,7 @@ func TestLuaScripter_Init2(t *testing.T) {
 	}
 }
 
+// TestLuaScripter_CanHandle tests whether the CanHandle works with a message
 func TestLuaScripter_CanHandle(t *testing.T) {
 	//CanHandle the connection
 	if ok := ls.CanHandle("test", "pass"); !ok {
@@ -137,6 +143,7 @@ func TestLuaScripter_CanHandle(t *testing.T) {
 	}
 }
 
+// TestLuaScripter_CanHandle2 tests whether the CanHandle works with a fail message
 func TestLuaScripter_CanHandle2(t *testing.T) {
 	//CanHandle the connection
 	if ok := ls.CanHandle("test", "fail"); ok {
@@ -144,12 +151,14 @@ func TestLuaScripter_CanHandle2(t *testing.T) {
 	}
 }
 
+// TestLuaScripter_GetScriptFolder tests whether the right script folder is returned
 func TestLuaScripter_GetScriptFolder(t *testing.T) {
 	if !reflect.DeepEqual(ls.GetScriptFolder(), "../../test-scripts/lua") {
 		t.Errorf("Test %s failed: got %+#v, expected %+#v", "login", ls.GetScriptFolder(),"../../test-scripts/lua")
 	}
 }
 
+// TestLuaScripter_SetChannel tests the set channel function
 func TestLuaScripter_SetChannel(t *testing.T) {
 	c, err := pushers.Dummy()
 	if err != nil {
@@ -158,6 +167,7 @@ func TestLuaScripter_SetChannel(t *testing.T) {
 	ls.SetChannel(c)
 }
 
+// TestLuaScripter_GetChannel tests the channel retrieve function from a luaScripter
 func TestLuaScripter_GetChannel(t *testing.T) {
 	c := ls.GetChannel()
 	if _, ok := c.(pushers.Channel); !ok {
@@ -165,6 +175,7 @@ func TestLuaScripter_GetChannel(t *testing.T) {
 	}
 }
 
+// TestLuaScripter_GetScripts tests the retrieval of the scripts function
 func TestLuaScripter_GetScripts(t *testing.T) {
 	got := ls.GetScripts()
 
@@ -178,6 +189,7 @@ func TestLuaScripter_GetScripts(t *testing.T) {
 	}
 }
 
+// TestLuaScripter_GetConnection tests whether a new connection gets the right struct back
 func TestLuaScripter_GetConnection(t *testing.T) {
 	conn := ls.GetConnection("test", client)
 	got := getConnIP(conn.GetScrConn().GetConn())
@@ -188,6 +200,7 @@ func TestLuaScripter_GetConnection(t *testing.T) {
 	}
 }
 
+// TestLuaScripter_GetConnection2 tests whether a existing connection gets the right struct back
 func TestLuaScripter_GetConnection2(t *testing.T) {
 	conn := ls.GetConnection("test", client)
 	got := getConnIP(conn.GetScrConn().GetConn())
