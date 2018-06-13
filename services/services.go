@@ -34,13 +34,12 @@ import (
 	"context"
 	"net"
 
-	"github.com/BurntSushi/toml"
-	"github.com/honeytrap/honeytrap/director"
 	"github.com/honeytrap/honeytrap/event"
 	"github.com/honeytrap/honeytrap/pushers"
 
-	logging "github.com/op/go-logging"
+	"github.com/op/go-logging"
 	"github.com/honeytrap/honeytrap/scripter"
+	"github.com/BurntSushi/toml"
 )
 
 var log = logging.MustGetLogger("services")
@@ -72,6 +71,15 @@ func Get(key string) (func(...ServicerFunc) Servicer, bool) {
 	return d, false
 }
 
+func GetAvailableServiceNames() []string {
+	var out []string
+	for key := range services {
+		out = append(out, key)
+	}
+	return out
+}
+
+
 type CanHandlerer interface {
 	CanHandle([]byte) bool
 }
@@ -89,21 +97,8 @@ func WithChannel(eb pushers.Channel) ServicerFunc {
 	}
 }
 
-type Proxier interface {
-	SetDirector(director.Director)
-}
-
 type Scripter interface {
 	SetScripter(scripter.Scripter)
-}
-
-func WithDirector(d director.Director) ServicerFunc {
-	return func(s Servicer) error {
-		if p, ok := s.(Proxier); ok {
-			p.SetDirector(d)
-		}
-		return nil
-	}
 }
 
 func WithConfig(c toml.Primitive) ServicerFunc {
