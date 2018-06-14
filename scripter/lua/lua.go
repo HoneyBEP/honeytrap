@@ -159,11 +159,15 @@ func (l *luaScripter) GetScriptFolder() string {
 
 // CleanConnections Check all connections removing all that haven't been used for more than 60 minutes to open up memory
 func (l *luaScripter) CleanConnections() {
+	count := 0
+	total := len(l.connections)
 	for key, connection := range l.connections {
 		if time.Since(connection.GetLastUsed()) > CleanupTimer * time.Minute { //The connection hasn't been used for more than 60 minutes
+			count++
 			delete(l.connections, key)
 		}
 	}
+	log.Debugf("Cleaning connections, %d of %d connections were cleaned, %d remaining", count, total, total-count)
 }
 
 // getConnIP retrieves the IP from a connection's remote address
