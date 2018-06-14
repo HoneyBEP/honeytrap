@@ -39,6 +39,7 @@ import (
 	"net"
 	"reflect"
 	"github.com/honeytrap/honeytrap/pushers"
+	"github.com/yuin/gopher-lua"
 )
 
 var ls scripter.Scripter
@@ -208,5 +209,144 @@ func TestLuaScripter_GetConnection2(t *testing.T) {
 	expected := getConnIP(client)
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("Test %s failed: got %+#v, expected %+#v", "GetConnection", got, expected)
+	}
+}
+
+func TestLuaConn_Handle(t *testing.T) {
+	conn := ls.GetConnection("test", client)
+
+	result, err := conn.GetScrConn().Handle("test", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := result.Content
+	expected := "test"
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("Test %s failed: got %+#v, expected %+#v", "LuaConn_Handle", got, expected)
+	}
+}
+
+func TestLuaConn_callHandle(t *testing.T) {
+	luaState := lua.NewState()
+	luaState.DoString("function handle(message) return message end")
+
+	result, err := callHandle(luaState, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := result.Content
+	expected := "test"
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("Test %s failed: got %+#v, expected %+#v", "LuaConn_callHandle", got, expected)
+	}
+}
+
+func TestLuaConn_AddScripts(t *testing.T) {
+	conn := ls.GetConnection("test", client)
+
+	err := conn.GetScrConn().AddScripts("test", map[string]string{"test_other.lua": "../../test-scripts/lua/test_other/test_other.lua"}, "../../test-scripts")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := conn.GetScrConn().HasScripts("test")
+	expected := true
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("Test %s failed: got %+#v, expected %+#v", "LuaConn_AddScripts", got, expected)
+	}
+}
+
+func TestLuaConn_SetStringFunction(t *testing.T) {
+	conn := ls.GetConnection("test", client)
+
+	err := conn.GetScrConn().SetStringFunction("parameterTest", func() string {
+		return "test"
+	}, "test")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := conn.GetScrConn().Handle("test", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := result.Content
+	expected := "testtest"
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("Test %s failed: got %+#v, expected %+#v", "LuaConn_Handle", got, expected)
+	}
+}
+
+func TestLuaConn_SetFloatFunction(t *testing.T) {
+	conn := ls.GetConnection("test", client)
+
+	err := conn.GetScrConn().SetFloatFunction("parameterTest", func() float64 {
+		return 2
+	}, "test")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := conn.GetScrConn().Handle("test", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := result.Content
+	expected := "test2"
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("Test %s failed: got %+#v, expected %+#v", "LuaConn_Handle", got, expected)
+	}
+}
+
+func TestLuaConn_SetVoidFunction(t *testing.T) {
+	conn := ls.GetConnection("test", client)
+
+	err := conn.GetScrConn().SetVoidFunction("parameterTest", func() {
+		got, err := conn.GetScrConn().GetParameters([]string{"key", "value"}, "test")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		expected := map[string]string{"key": "key", "value": "value"}
+		if !reflect.DeepEqual(got, expected) {
+			t.Errorf("Test %s failed: got %+#v, expected %+#v", "LuaConn_GetParameters", got, expected)
+		}
+	}, "test")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := conn.GetScrConn().Handle("test", "test"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLuaConn_GetParameters(t *testing.T) {
+	conn := ls.GetConnection("test", client)
+
+	err := conn.GetScrConn().SetStringFunction("parameterTest", func() string {
+		got, err := conn.GetScrConn().GetParameters([]string{"key", "value"}, "test")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		expected := map[string]string{"key": "key", "value": "value"}
+		if !reflect.DeepEqual(got, expected) {
+			t.Errorf("Test %s failed: got %+#v, expected %+#v", "LuaConn_GetParameters", got, expected)
+		}
+
+		return "test"
+	}, "test")
+
+	_, err = conn.GetScrConn().Handle("test", "test")
+	if err != nil {
+		t.Fatal(err)
 	}
 }

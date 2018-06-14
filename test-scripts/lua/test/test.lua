@@ -14,3 +14,16 @@ function canHandle(message)
 
     return true
 end
+
+function handle(message)
+    if parameterTest ~= nil then
+        local response = parameterTest("key", "value")
+        if response == nil then
+            return message
+        else
+            return message .. parameterTest("key", "value")
+        end
+    end
+
+    return message
+end
