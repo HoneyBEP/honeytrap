@@ -29,3 +29,137 @@
 * must display the words "Powered by Honeytrap" and retain the original copyright notice.
  */
 package scripter
+
+import (
+	"testing"
+	"fmt"
+	"reflect"
+	"github.com/honeytrap/honeytrap/pushers"
+	"github.com/honeytrap/honeytrap/abtester"
+	"github.com/BurntSushi/toml"
+)
+
+// TestRegister tests the register of a scripter
+func TestRegister(t *testing.T) {
+	Register("dummy", Dummy)
+
+	scripterFunc, ok := Get("dummy")
+	if !ok {
+		t.Fatal(fmt.Errorf("unable to retrieve scripter function"))
+	}
+
+	if _, err := scripterFunc("dummy"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestGet tests the successful retrieval of a registered scripter
+func TestGet(t *testing.T) {
+	Register("dummy", Dummy)
+
+	if _, ok := Get("dummy"); !ok {
+		t.Fatal(fmt.Errorf("unable to retrieve scripter function"))
+	}
+}
+
+// TestGet2 tests the unsuccessful retrieval of an unregistered scripter
+func TestGet2(t *testing.T) {
+	Register("dummy", Dummy)
+
+	if _, ok := Get("dummy2"); ok {
+		t.Fatal(fmt.Errorf("able to retrieve unavailable scripter function"))
+	}
+}
+
+// TestGetAvailableScripterNames tests the list of available scripters by name
+func TestGetAvailableScripterNames(t *testing.T) {
+	Register("dummy", Dummy)
+
+	expected := []string {
+		"dummy",
+	}
+	got := GetAvailableScripterNames()
+
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("Test %s failed: got %+#v, expected %+#v", "TestGetAvailableScripterNames", got, expected)
+	}
+}
+
+// TestWithChannel tests the channel setup of a scripter
+func TestWithChannel(t *testing.T) {
+	Register("dummy", Dummy)
+
+	scripterFunc, ok := Get("dummy")
+	if !ok {
+		t.Fatal(fmt.Errorf("unable to retrieve scripter function"))
+	}
+
+	expected, _ := pushers.Dummy()
+
+	scripter, err := scripterFunc("test", WithChannel(expected))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := scripter.GetChannel()
+
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("Test %s failed: got %+#v, expected %+#v", "TestWithChannel", got, expected)
+	}
+}
+
+// TestWithAbTester test the abtester setup of a scripter
+func TestWithAbTester(t *testing.T) {
+	var got abtester.AbTester
+	expected, err := abtester.Dummy("dummy", toml.Primitive{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dummy, err := Dummy("dummy", WithAbTester(expected))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if ScrAbTester, ok := dummy.(ScrAbTester); ok {
+		got = ScrAbTester.GetAbTester()
+	}
+
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("Test %s failed: got %+#v, expected %+#v", "TestWithChannel", got, expected)
+	}
+}
+
+// TestWithConfig test the config setup of a scripter
+func TestWithConfig(t *testing.T) {
+	if _, err := Dummy("dummy", WithConfig(toml.Primitive{})); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestReloadScripts test the reload scripts of a scripter
+func TestReloadScripts(t *testing.T) {
+	dummy, err := Dummy("dummy")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := ReloadScripts(dummy); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestReloadAllScripters test the overall reload scripts of scripters
+func TestReloadAllScripters(t *testing.T) {
+	dummy, err := Dummy("dummy")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	scripters := map[string]Scripter {
+		"dummy": dummy,
+	}
+	if err := ReloadAllScripters(scripters); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -37,6 +37,7 @@ import (
 	"github.com/honeytrap/honeytrap/pushers"
 	"github.com/op/go-logging"
 	"net"
+	"fmt"
 )
 
 var (
@@ -79,7 +80,9 @@ func WithChannel(eb pushers.Channel) ScripterFunc {
 
 func WithAbTester(ab abtester.AbTester) ScripterFunc {
 	return func(s Scripter) error {
-		s.SetAbTester(ab)
+		if scrAbTester, ok := s.(ScrAbTester); ok {
+			scrAbTester.SetAbTester(ab)
+		}
 		return nil
 	}
 }
@@ -93,7 +96,6 @@ type Scripter interface {
 	GetChannel() pushers.Channel
 	GetScripts() map[string]map[string]string
 	GetScriptFolder() string
-	SetAbTester(ab abtester.AbTester)
 }
 
 //ConnectionWrapper interface that implements the basic method that a connection should have
@@ -127,6 +129,7 @@ type Result struct {
 
 //ScrAbTester exposes methods to interact with the AbTester
 type ScrAbTester interface {
+	SetAbTester(ab abtester.AbTester)
 	GetAbTester() abtester.AbTester
 }
 
@@ -138,19 +141,26 @@ func WithConfig(c toml.Primitive) ScripterFunc {
 }
 
 // ReloadScripts reloads the scripts from the scripter
-func ReloadScripts(s Scripter) {
+func ReloadScripts(s Scripter) error {
 	for service := range s.GetScripts() {
 		if err := s.Init(service); err != nil {
 			log.Errorf("error init service: %s", err)
+			return fmt.Errorf("error init service: %s", err)
 		} else {
 			log.Infof("successfully updated service: %s", service)
 		}
 	}
+
+	return nil
 }
 
 // ReloadAllScripters reloads all scripts from scripters
-func ReloadAllScripters(scripters map[string]Scripter) {
+func ReloadAllScripters(scripters map[string]Scripter) error {
 	for _, script := range scripters {
-		ReloadScripts(script)
+		if err := ReloadScripts(script); err != nil {
+			return err
+		}
 	}
+
+	return nil
 }

@@ -212,6 +212,7 @@ func TestLuaScripter_GetConnection2(t *testing.T) {
 	}
 }
 
+// TestLuaConn_Handle tests the handle method on a connection
 func TestLuaConn_Handle(t *testing.T) {
 	conn := ls.GetConnection("test", client)
 
@@ -227,6 +228,7 @@ func TestLuaConn_Handle(t *testing.T) {
 	}
 }
 
+// TestLuaConn_callHandle tests if the connection can be handled by the script
 func TestLuaConn_callHandle(t *testing.T) {
 	luaState := lua.NewState()
 	luaState.DoString("function handle(message) return message end")
@@ -243,6 +245,7 @@ func TestLuaConn_callHandle(t *testing.T) {
 	}
 }
 
+// TestLuaConn_AddScripts tests whether a script can be added to a connection
 func TestLuaConn_AddScripts(t *testing.T) {
 	conn := ls.GetConnection("test", client)
 
@@ -258,6 +261,7 @@ func TestLuaConn_AddScripts(t *testing.T) {
 	}
 }
 
+// TestLuaConn_SetStringFunction test the string functions from Go into Lua
 func TestLuaConn_SetStringFunction(t *testing.T) {
 	conn := ls.GetConnection("test", client)
 
@@ -281,6 +285,7 @@ func TestLuaConn_SetStringFunction(t *testing.T) {
 	}
 }
 
+// TestLuaConn_SetFloatFunction test the float functions from Go into Lua
 func TestLuaConn_SetFloatFunction(t *testing.T) {
 	conn := ls.GetConnection("test", client)
 
@@ -304,6 +309,7 @@ func TestLuaConn_SetFloatFunction(t *testing.T) {
 	}
 }
 
+// TestLuaConn_SetVoidFunction tests the void functions from Go in Lua
 func TestLuaConn_SetVoidFunction(t *testing.T) {
 	conn := ls.GetConnection("test", client)
 
@@ -328,6 +334,7 @@ func TestLuaConn_SetVoidFunction(t *testing.T) {
 	}
 }
 
+// TestLuaConn_GetParameters test the parameter retrieval from Lua in Go
 func TestLuaConn_GetParameters(t *testing.T) {
 	conn := ls.GetConnection("test", client)
 
