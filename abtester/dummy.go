@@ -38,16 +38,16 @@ import (
 
 //Interface that gives methods to get and set ab-tests
 type dummyTester struct {
-
+	st storage.Storage
 }
 
-func Dummy(namespace string, config toml.Primitive) (*abTester, error) {
+func Dummy(namespace string, config toml.Primitive) (*dummyTester, error) {
 	st, err := storage.Namespace(fmt.Sprintf("abtester_%s", namespace))
 	if err != nil {
 		return nil, err
 	}
 
-	ab := &abTester{
+	ab := &dummyTester{
 		st: st,
 	}
 

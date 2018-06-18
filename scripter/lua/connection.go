@@ -21,11 +21,12 @@ type luaConn struct {
 	connectionBuffer bytes.Buffer
 }
 
-//GetConn returns the connection for the srcConn
+//GetConn returns the connection for the SrcConn
 func (c *luaConn) GetConn() net.Conn {
 	return c.conn
 }
 
+//GetAbTester returns the ab tester for the SrcConn
 func (c *luaConn) GetAbTester() abtester.AbTester {
 	return c.abTester
 }

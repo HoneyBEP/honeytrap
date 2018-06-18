@@ -35,6 +35,8 @@ import (
 	"github.com/honeytrap/honeytrap/abtester"
 	"net"
 	"github.com/honeytrap/honeytrap/pushers"
+	"github.com/yuin/gopher-lua"
+	"bytes"
 )
 
 // New creates a lua scripter instance that handles the connection to all scripts
@@ -106,4 +108,65 @@ func (l *dummyScripter) GetScripts() map[string]map[string]string {
 // GetScriptFolder return the folder where the scripts are located for this scripter
 func (l *dummyScripter) GetScriptFolder() string {
 	return fmt.Sprintf("%s", l.name)
+}
+
+type dummyConn struct {
+	conn net.Conn
+
+	//List of lua scripts running for this connection: directory/scriptname
+	scripts map[string]map[string]*lua.LState
+
+	abTester abtester.AbTester
+
+	connectionBuffer bytes.Buffer
+}
+
+//GetConn returns the connection for the SrcConn
+func (c *dummyConn) GetConn() net.Conn {
+	return c.conn
+}
+
+//GetAbTester returns the ab tester for the SrcConn
+func (c *dummyConn) GetAbTester() abtester.AbTester {
+	return c.abTester
+}
+
+//SetStringFunction sets a function that is available in all scripts for a service
+func (c *dummyConn) SetStringFunction(name string, getString func() string, service string) error {
+	return nil
+}
+
+//SetFloatFunction sets a function that is available in all scripts for a service
+func (c *dummyConn) SetFloatFunction(name string, getFloat func() float64, service string) error {
+	return nil
+}
+
+//SetVoidFunction sets a function that is available in all scripts for a service
+func (c *dummyConn) SetVoidFunction(name string, doVoid func(), service string) error {
+	return nil
+}
+
+//GetParameters gets the stack parameters from lua to be used in Go functions
+func (c *dummyConn) GetParameters(params []string, service string) (map[string]string, error) {
+	return nil, nil
+}
+
+//HasScripts returns whether the scripts for a given service are loaded already
+func (c *dummyConn) HasScripts(service string) bool {
+	return false
+}
+
+//AddScripts adds scripts to a connection for a given service
+func (c *dummyConn) AddScripts(service string, scripts map[string]string, folder string) error {
+	return nil
+}
+
+// GetConnectionBuffer returns the buffer of the connection
+func (c *dummyConn) GetConnectionBuffer() *bytes.Buffer {
+	return nil
+}
+
+// Handle calls the handle method on the lua state with the message as the argument
+func (c *dummyConn) Handle(service string, message string) (*Result, error) {
+	return nil, nil
 }

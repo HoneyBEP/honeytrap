@@ -40,7 +40,6 @@ import (
 	"reflect"
 	"github.com/honeytrap/honeytrap/pushers"
 	"github.com/yuin/gopher-lua"
-	"strings"
 )
 
 var ls scripter.Scripter
@@ -356,16 +355,5 @@ func TestLuaConn_GetParameters(t *testing.T) {
 	_, err = conn.GetScrConn().Handle("test", "test")
 	if err != nil {
 		t.Fatal(err)
-	}
-}
-
-func TestMethods_LogFunction(t *testing.T) {
-	conn := ls.GetConnection("test", client)
-	logTypes := []string { "critical", "debug", "error", "info", "notice", "warning" }
-
-	for _, logType := range logTypes {
-		if _, err := conn.GetScrConn().Handle("test", "log" + strings.Title(logType)); err != nil {
-			t.Fatal(err)
-		}
 	}
 }
