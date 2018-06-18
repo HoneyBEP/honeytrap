@@ -163,3 +163,7 @@ func TestReloadAllScripters(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestGetRemoteAddr(t *testing.T) {
+	getRemoteAddr(c)
+}

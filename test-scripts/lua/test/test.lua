@@ -16,6 +16,24 @@ function canHandle(message)
 end
 
 function handle(message)
+    if message == "logCritical" then
+        doLog("critical", "critical")
+    elseif message == "logDebug" then
+        doLog("debug", "debug")
+    elseif message == "logError" then
+        doLog("error", "error")
+    elseif message == "logFatal" then
+        doLog("fatal", "fatal")
+    elseif message == "logInfo" then
+        doLog("info", "info")
+    elseif message == "logNotice" then
+        doLog("notice", "notice")
+    elseif message == "logPanic" then
+        doLog("panic", "panic")
+    elseif message == "logWarning" then
+        doLog("warning", "warning")
+    end
+
     if parameterTest ~= nil then
         local response = parameterTest("key", "value")
         if response == nil then

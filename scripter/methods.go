@@ -8,19 +8,29 @@ import (
 	"time"
 )
 
-//SetBasicMethods sets methods that can be called by each script, returning basic functionality for the scripts initiated in the scripter
-func SetBasicMethods(s Scripter, c ScrConn, service string) {
-	c.SetStringFunction("getRemoteAddr", func() string { return c.GetConn().RemoteAddr().String() }, service)
-	c.SetStringFunction("getLocalAddr", func() string { return c.GetConn().LocalAddr().String() }, service)
+// getRemoteAddr returns a function that returns the remote address of a connection
+func getRemoteAddr(c ScrConn) func() string {
+	return func() string { return c.GetConn().RemoteAddr().String() }
+}
 
-	c.SetStringFunction("getDatetime", func() string {
+// getLocalAddr returns a function that returns the local address of a connection
+func getLocalAddr(c ScrConn) func() string {
+	return func() string { return c.GetConn().LocalAddr().String() }
+}
+
+// getDatetime returns a function that returns the datetime in unix format
+func getDatetime() func() string {
+	return func() string {
 		t := time.Now()
 		return fmt.Sprintf("%d-%02d-%02dT%02d:%02d:%02d-00:00\n",
 			t.Year(), t.Month(), t.Day(),
 			t.Hour(), t.Minute(), t.Second())
-	}, service)
+	}
+}
 
-	c.SetStringFunction("getFileDownload", func() string {
+// getFileDownload returns a function that downloads a file from URL
+func getFileDownload(c ScrConn, service string) func() string {
+	return func() string {
 		params, _ := c.GetParameters([]string{"url", "path"}, service)
 
 		if err := files.Download(params["url"], params["path"]); err != nil {
@@ -28,23 +38,26 @@ func SetBasicMethods(s Scripter, c ScrConn, service string) {
 			return "no"
 		}
 		return "yes"
-	}, service)
-
-	if ab, ok := c.(ScrAbTester); ok {
-		//In the script the function 'getAbTest(key)' can be called, returning a random result for the given key
-		c.SetStringFunction("getAbTest", func() string {
-			params, _ := c.GetParameters([]string{"key"}, service)
-
-			val, err := ab.GetAbTester().GetForGroup(service, params["key"], -1)
-			if err != nil {
-				return "_" //No response, _ so lua knows it has no ab-test
-			}
-
-			return val
-		}, service)
 	}
+}
 
-	c.SetVoidFunction("channelSend", func() {
+// getAbTest returns a function that returns a value from the AB tester
+func getAbTest(ab ScrAbTester, c ScrConn, service string) func() string {
+	return func() string {
+		params, _ := c.GetParameters([]string{"key"}, service)
+
+		val, err := ab.GetAbTester().GetForGroup(service, params["key"], -1)
+		if err != nil {
+			return "_" //No response, _ so lua knows it has no ab-test
+		}
+
+		return val
+	}
+}
+
+// channelSend returns a function that sends a event over the channel
+func channelSend(s Scripter, c ScrConn, service string) func() {
+	return func() {
 		params, _ := c.GetParameters([]string{"data"}, service)
 		var data map[string]interface{}
 
@@ -58,19 +71,12 @@ func SetBasicMethods(s Scripter, c ScrConn, service string) {
 		event.Custom("source-ip", c.GetConn().RemoteAddr().String())(message)
 
 		s.GetChannel().Send(message)
-	}, service)
-
-	c.SetStringFunction("getFolder", func() string {
-		return s.GetScriptFolder()
-	}, service)
-
-	setLogFunction(s, c, service)
+	}
 }
 
-// setLogFunction sets the log function within the scripter service on the connection
-//In the script the function 'doLog(type, message)' can be called, with type = logging type and message the message
-func setLogFunction(s Scripter, c ScrConn, service string) {
-	c.SetVoidFunction("doLog", func() {
+// doLog returns a function that can log a certain message on different log types
+func doLog(c ScrConn, service string) func() {
+	return func() {
 		params, _ := c.GetParameters([]string{"logType", "message"}, service)
 		logType := params["logType"]
 		message := params["message"]
@@ -99,5 +105,34 @@ func setLogFunction(s Scripter, c ScrConn, service string) {
 		if logType == "warning" {
 			log.Warning(message)
 		}
-	}, service)
+	}
+}
+
+// getFolder returns a function that returns the script folder path
+func getFolder(s Scripter) func() string {
+	return func() string {
+		return s.GetScriptFolder()
+	}
+}
+
+// SetBasicMethods sets methods that can be called by each script, returning basic functionality for the scripts
+// initiated in the scripter
+func SetBasicMethods(s Scripter, c ScrConn, service string) {
+	c.SetStringFunction("getRemoteAddr", getRemoteAddr(c), service)
+	c.SetStringFunction("getLocalAddr", getLocalAddr(c), service)
+
+	c.SetStringFunction("getDatetime", getDatetime(), service)
+
+	c.SetStringFunction("getFileDownload", getFileDownload(c, service), service)
+
+	if ab, ok := c.(ScrAbTester); ok {
+		//In the script the function 'getAbTest(key)' can be called, returning a random result for the given key
+		c.SetStringFunction("getAbTest", getAbTest(ab, c, service), service)
+	}
+
+	c.SetStringFunction("getFolder", getFolder(s), service)
+
+	c.SetVoidFunction("channelSend", channelSend(s, c, service), service)
+
+	c.SetVoidFunction("doLog", doLog(c, service),service)
 }
