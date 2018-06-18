@@ -32,8 +32,6 @@ package scripter
 
 import (
 	"testing"
-	"net"
-	"os"
 	"reflect"
 )
 
