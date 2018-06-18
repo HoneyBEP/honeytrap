@@ -45,7 +45,7 @@ var connectionWrapper *ConnectionStruct
 var scrConn ScrConn
 
 func TestMain(m *testing.M) {
-	basepath = "../test-script/"
+	basepath = "test-scripts/"
 
 	server, client := net.Pipe()
 	defer server.Close()
