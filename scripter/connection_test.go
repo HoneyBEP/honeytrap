@@ -37,25 +37,6 @@ import (
 	"reflect"
 )
 
-var connectionWrapper *ConnectionStruct
-var scrConn ScrConn
-
-func TestMain(m *testing.M) {
-	basepath = "test-script/"
-
-	server, client := net.Pipe()
-	defer server.Close()
-	defer client.Close()
-
-	scrConn = &dummyConn{
-		conn: server,
-	}
-
-	connectionWrapper = &ConnectionStruct{ Conn: scrConn, Service: "test" }
-
-	os.Exit(m.Run())
-}
-
 //TestConnectionStruct_GetScrConn tests the get scripter connection function on a connection wrapper
 func TestConnectionStruct_GetScrConn(t *testing.T) {
 	got := connectionWrapper.GetScrConn()

@@ -37,7 +37,28 @@ import (
 	"github.com/honeytrap/honeytrap/pushers"
 	"github.com/honeytrap/honeytrap/abtester"
 	"github.com/BurntSushi/toml"
+	"net"
+	"os"
 )
+
+var connectionWrapper *ConnectionStruct
+var scrConn ScrConn
+
+func TestMain(m *testing.M) {
+	basepath = "../test-script/"
+
+	server, client := net.Pipe()
+	defer server.Close()
+	defer client.Close()
+
+	scrConn = &dummyConn{
+		conn: server,
+	}
+
+	connectionWrapper = &ConnectionStruct{ Conn: scrConn, Service: "test" }
+
+	os.Exit(m.Run())
+}
 
 // TestRegister tests the register of a scripter
 func TestRegister(t *testing.T) {
