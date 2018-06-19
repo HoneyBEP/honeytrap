@@ -19,8 +19,6 @@ var (
 	_ = scripter.Register("lua", New)
 )
 
-const CleanupTimer = 60 //Time in minutes
-
 // New creates a lua scripter instance that handles the connection to all scripts
 // A list where all scripts are stored in is generated
 func New(name string, options ...scripter.ScripterFunc) (scripter.Scripter, error) {
@@ -45,6 +43,7 @@ type luaScripter struct {
 	name string
 
 	Folder string `toml:"folder"`
+	CleanupTimer time.Duration `toml:"cleanupTimer"`
 
 	//Source of the states, initialized per connection: directory/scriptname
 	scripts map[string]map[string]string
@@ -162,7 +161,7 @@ func (l *luaScripter) CleanConnections() {
 	count := 0
 	total := len(l.connections)
 	for key, connection := range l.connections {
-		if time.Since(connection.GetLastUsed()) > CleanupTimer * time.Minute { //The connection hasn't been used for more than 60 minutes
+		if time.Since(connection.GetLastUsed()) > l.CleanupTimer * time.Minute { //The connection hasn't been used for more than 60 minutes
 			count++
 			delete(l.connections, key)
 		}
