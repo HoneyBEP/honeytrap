@@ -38,6 +38,7 @@ import (
 	"github.com/honeytrap/honeytrap/utils"
 	"github.com/op/go-logging"
 	"net"
+	"fmt"
 )
 
 var (
@@ -68,6 +69,7 @@ func (s *genericService) SetScripter(scr scripter.Scripter) {
 	s.scr = scr
 }
 
+// SetChannel sets the channel for the service
 func (s *genericService) SetChannel(c pushers.Channel) {
 	s.c = c
 }
@@ -76,15 +78,18 @@ func (s *genericService) SetChannel(c pushers.Channel) {
 func (s *genericService) Handle(ctx context.Context, conn net.Conn) error {
 	buffer := make([]byte, 4096)
 	pConn := utils.PeekConnection(conn)
-	n, _ := pConn.Peek(buffer)
 
 	// Add the go methods that have to be exposed to the scripts
+	if s.scr == nil {
+		return fmt.Errorf("%s","undefined scripter")
+	}
 	connW := s.scr.GetConnection("generic", pConn)
 
 	s.setMethods(connW)
 
 	for {
 		//Handle incoming message with the scripter
+		n, _ := pConn.Peek(buffer)
 		response, err := connW.Handle(string(buffer[:n]))
 		if err != nil {
 			return err
