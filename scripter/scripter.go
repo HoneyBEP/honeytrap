@@ -38,12 +38,15 @@ import (
 	"github.com/op/go-logging"
 	"net"
 	"fmt"
+	"time"
 )
 
 var (
 	scripters = map[string]func(string, ...ScripterFunc) (Scripter, error){}
 )
 var log = logging.MustGetLogger("scripter")
+
+const CleanupInterval = 300 //Time in seconds
 
 //Register the scripter instance
 func Register(key string, fn func(string, ...ScripterFunc) (Scripter, error)) func(string, ...ScripterFunc) (Scripter, error) {
@@ -96,6 +99,7 @@ type Scripter interface {
 	GetChannel() pushers.Channel
 	GetScripts() map[string]map[string]string
 	GetScriptFolder() string
+	CleanConnections()
 }
 
 //ConnectionWrapper interface that implements the basic method that a connection should have
@@ -119,6 +123,7 @@ type ScrConn interface {
 	AddScripts(service string, scripts map[string]string, folder string) error
 	Handle(service string, message string) (*Result, error)
 	GetConnectionBuffer() *bytes.Buffer
+	GetLastUsed() time.Time
 }
 
 //Result struct which allows the result to be a string, an empty string and a nil value
@@ -163,4 +168,21 @@ func ReloadAllScripters(scripters map[string]Scripter) error {
 	}
 
 	return nil
+}
+
+// SetConnectionChecker sets an interval of 5 minutes that checks all connections on their last use.
+// When not used for over an hour, the connection is removed from the list and therefor collected by the garbage
+// collector, clearing unused memory space.
+func SetConnectionChecker(scripters map[string]Scripter) {
+	ticker := time.NewTicker(CleanupInterval * time.Second)
+	go func() {
+		for {
+			select {
+			case <- ticker.C:
+				for _, scripter := range scripters {
+					scripter.CleanConnections()
+				}
+			}
+		}
+	}()
 }

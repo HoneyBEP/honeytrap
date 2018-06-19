@@ -7,6 +7,7 @@ import (
 	"github.com/yuin/gopher-lua"
 	"net"
 	"bytes"
+	"time"
 )
 
 // Scripter Connection struct
@@ -19,6 +20,8 @@ type luaConn struct {
 	abTester abtester.AbTester
 
 	connectionBuffer bytes.Buffer
+
+	lastUsed time.Time
 }
 
 //GetConn returns the connection for the SrcConn
@@ -172,4 +175,9 @@ func (c *luaConn) Handle(service string, message string) (*scripter.Result, erro
 	}
 
 	return nil, nil
+}
+
+//Returns the time in milliseconds that this connection was called for the last time
+func (c *luaConn) GetLastUsed() time.Time {
+	return c.lastUsed
 }
