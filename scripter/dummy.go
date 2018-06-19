@@ -110,6 +110,11 @@ func (l *dummyScripter) GetScriptFolder() string {
 	return fmt.Sprintf("%s", l.name)
 }
 
+// CleanConnections Check all connections removing all that haven't been used for more than 60 minutes to open up memory
+func (l *dummyScripter) CleanConnections() {
+
+}
+
 type dummyConn struct {
 	conn net.Conn
 
