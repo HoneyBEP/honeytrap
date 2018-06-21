@@ -37,6 +37,7 @@ import (
 	"github.com/honeytrap/honeytrap/pushers"
 	"github.com/yuin/gopher-lua"
 	"bytes"
+	"time"
 )
 
 // New creates a lua scripter instance that handles the connection to all scripts
@@ -174,4 +175,9 @@ func (c *dummyConn) GetConnectionBuffer() *bytes.Buffer {
 // Handle calls the handle method on the lua state with the message as the argument
 func (c *dummyConn) Handle(service string, message string) (*Result, error) {
 	return nil, nil
+}
+
+// GetLastUsed returns the time in milliseconds that this connection was called for the last time
+func (c *dummyConn) GetLastUsed() time.Time {
+	return time.Now()
 }
