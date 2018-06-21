@@ -24,11 +24,12 @@ type luaConn struct {
 	lastUsed time.Time
 }
 
-//GetConn returns the connection for the srcConn
+//GetConn returns the connection for the SrcConn
 func (c *luaConn) GetConn() net.Conn {
 	return c.conn
 }
 
+//GetAbTester returns the ab tester for the SrcConn
 func (c *luaConn) GetAbTester() abtester.AbTester {
 	return c.abTester
 }
@@ -91,7 +92,8 @@ func (c *luaConn) HasScripts(service string) bool {
 }
 
 //AddScripts adds scripts to a connection for a given service
-func (c *luaConn) AddScripts(service string, scripts map[string]string, folder string) {
+func (c *luaConn) AddScripts(service string, scripts map[string]string, folder string) error {
+	var err error
 	if _, ok := c.scripts[service]; !ok {
 		c.scripts[service] = map[string]*lua.LState{}
 	}
@@ -100,11 +102,13 @@ func (c *luaConn) AddScripts(service string, scripts map[string]string, folder s
 		ls := lua.NewState()
 		ls.DoString(fmt.Sprintf("package.path = './%s/lua/?.lua;' .. package.path", folder))
 		if err := ls.DoFile(script); err != nil {
-			log.Errorf("Unable to load lua script: %s", err)
+			err = fmt.Errorf("unable to load lua script: %s", err)
 			continue
 		}
 		c.scripts[service][name] = ls
 	}
+
+	return err
 }
 
 // GetConnectionBuffer returns the buffer of the connection
@@ -173,7 +177,7 @@ func (c *luaConn) Handle(service string, message string) (*scripter.Result, erro
 	return nil, nil
 }
 
-//Returns the time in milliseconds that this connection was called for the last time
+// GetLastUsed returns the time in milliseconds that this connection was called for the last time
 func (c *luaConn) GetLastUsed() time.Time {
 	return c.lastUsed
 }

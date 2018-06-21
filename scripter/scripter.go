@@ -37,6 +37,7 @@ import (
 	"github.com/honeytrap/honeytrap/pushers"
 	"github.com/op/go-logging"
 	"net"
+	"fmt"
 	"time"
 )
 
@@ -82,7 +83,9 @@ func WithChannel(eb pushers.Channel) ScripterFunc {
 
 func WithAbTester(ab abtester.AbTester) ScripterFunc {
 	return func(s Scripter) error {
-		s.SetAbTester(ab)
+		if scrAbTester, ok := s.(ScrAbTester); ok {
+			scrAbTester.SetAbTester(ab)
+		}
 		return nil
 	}
 }
@@ -96,7 +99,6 @@ type Scripter interface {
 	GetChannel() pushers.Channel
 	GetScripts() map[string]map[string]string
 	GetScriptFolder() string
-	SetAbTester(ab abtester.AbTester)
 	CleanConnections()
 }
 
@@ -118,7 +120,7 @@ type ScrConn interface {
 	SetVoidFunction(name string, doVoid func(), service string) error
 	GetParameters(params []string, service string) (map[string]string, error)
 	HasScripts(service string) bool
-	AddScripts(service string, scripts map[string]string, folder string)
+	AddScripts(service string, scripts map[string]string, folder string) error
 	Handle(service string, message string) (*Result, error)
 	GetConnectionBuffer() *bytes.Buffer
 	GetLastUsed() time.Time
@@ -132,6 +134,7 @@ type Result struct {
 
 //ScrAbTester exposes methods to interact with the AbTester
 type ScrAbTester interface {
+	SetAbTester(ab abtester.AbTester)
 	GetAbTester() abtester.AbTester
 }
 
@@ -143,21 +146,28 @@ func WithConfig(c toml.Primitive) ScripterFunc {
 }
 
 // ReloadScripts reloads the scripts from the scripter
-func ReloadScripts(s Scripter) {
+func ReloadScripts(s Scripter) error {
 	for service := range s.GetScripts() {
 		if err := s.Init(service); err != nil {
 			log.Errorf("error init service: %s", err)
+			return fmt.Errorf("error init service: %s", err)
 		} else {
 			log.Infof("successfully updated service: %s", service)
 		}
 	}
+
+	return nil
 }
 
 // ReloadAllScripters reloads all scripts from scripters
-func ReloadAllScripters(scripters map[string]Scripter) {
+func ReloadAllScripters(scripters map[string]Scripter) error {
 	for _, script := range scripters {
-		ReloadScripts(script)
+		if err := ReloadScripts(script); err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
 
 // SetConnectionChecker sets an interval of 5 minutes that checks all connections on their last use.
