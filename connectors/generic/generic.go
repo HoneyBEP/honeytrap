@@ -31,21 +31,18 @@
 package generic
 
 import (
-	"context"
-	"github.com/honeytrap/honeytrap/pushers"
-	"github.com/honeytrap/honeytrap/scripter"
-	"github.com/honeytrap/honeytrap/services"
 	"github.com/honeytrap/honeytrap/utils"
 	"github.com/op/go-logging"
 	"net"
+	"github.com/honeytrap/honeytrap/connectors"
 )
 
 var (
-	_   = services.Register("generic", Generic)
-	log = logging.MustGetLogger("services/generic")
+	_   = connectors.Register("generic", Generic)
+	log = logging.MustGetLogger("connectors/generic")
 )
 
-func Generic(options ...services.ServicerFunc) services.Servicer {
+func Generic(options ...connectors.ConnectorFunc) connectors.Connector {
 	s := &genericService{}
 
 	for _, o := range options {
@@ -56,30 +53,20 @@ func Generic(options ...services.ServicerFunc) services.Servicer {
 }
 
 type genericService struct {
-	scr scripter.Scripter
-	c   pushers.Channel
+	connectors.BaseConnector
 }
 
 func (s *genericService) CanHandle(payload []byte) bool {
-	return s.scr.CanHandle("generic", string(payload))
+	return s.GetScripter().CanHandle("generic", string(payload))
 }
 
-func (s *genericService) SetScripter(scr scripter.Scripter) {
-	s.scr = scr
-}
-
-func (s *genericService) SetChannel(c pushers.Channel) {
-	s.c = c
-}
-
-// Handle handles the request
-func (s *genericService) Handle(ctx context.Context, conn net.Conn) error {
+func (s *genericService) HandleScripter(conn net.Conn, cData interface{}) error {
 	buffer := make([]byte, 4096)
 	pConn := utils.PeekConnection(conn)
 	n, _ := pConn.Peek(buffer)
 
 	// Add the go methods that have to be exposed to the scripts
-	connW := s.scr.GetConnection("generic", pConn)
+	connW := s.GetScripter().GetConnection("generic", pConn)
 
 	s.setMethods(connW)
 

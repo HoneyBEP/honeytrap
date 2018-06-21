@@ -62,16 +62,22 @@ import (
 	"github.com/honeytrap/honeytrap/pushers"
 	"github.com/honeytrap/honeytrap/pushers/eventbus"
 
+	// Include services
 	"github.com/honeytrap/honeytrap/services"
 	_ "github.com/honeytrap/honeytrap/services/elasticsearch"
 	_ "github.com/honeytrap/honeytrap/services/ethereum"
 	_ "github.com/honeytrap/honeytrap/services/ftp"
-	_ "github.com/honeytrap/honeytrap/services/generic"
+	_ "github.com/honeytrap/honeytrap/connectors/generic"
 	_ "github.com/honeytrap/honeytrap/services/ipp"
 	_ "github.com/honeytrap/honeytrap/services/redis"
 	_ "github.com/honeytrap/honeytrap/services/smtp"
 	_ "github.com/honeytrap/honeytrap/services/ssh"
 	_ "github.com/honeytrap/honeytrap/services/vnc"
+
+	// Include connectors
+	"github.com/honeytrap/honeytrap/connectors"
+	_ "github.com/honeytrap/honeytrap/connectors/generic"
+	_ "github.com/honeytrap/honeytrap/connectors/ssh"
 
 	"github.com/honeytrap/honeytrap/listener"
 	_ "github.com/honeytrap/honeytrap/listener/agent"
@@ -99,7 +105,6 @@ import (
 
 	"encoding/json"
 	"github.com/honeytrap/honeytrap/abtester"
-	"github.com/honeytrap/honeytrap/connectors"
 	"github.com/honeytrap/honeytrap/utils"
 	"github.com/op/go-logging"
 )
@@ -612,11 +617,11 @@ func (hc *Honeytrap) Run(ctx context.Context) {
 				// Create new connector
 				connectorFn, ok := connectors.Get(c.Name)
 				if !ok {
-					log.Errorf("Error retrieving connector '%s'", c.Name)
+					log.Errorf("Cound not find connector=%s. Enabled connectors: %s", c.Name, strings.Join(connectors.GetAvailableConnectorNames(), ", "))
 					continue
 				}
 
-				options := []connectors.ConnectorFunc {
+				options := []connectors.ConnectorFunc{
 					connectors.WithContext(ctx),
 					connectors.WithChannel(hc.bus),
 				}
@@ -637,18 +642,17 @@ func (hc *Honeytrap) Run(ctx context.Context) {
 				} else if d, ok := directors[c.Director]; ok {
 					options = append(options, connectors.WithDirector(d))
 				} else {
-					log.Error(color.RedString("Could not find director=%s. Enabled directors: %s", c.Service, strings.Join(director.GetAvailableDirectorNames(), ", ")))
+					log.Error(color.RedString("Could not find director=%s. Enabled directors: %s", c.Director, strings.Join(director.GetAvailableDirectorNames(), ", ")))
 				}
 				if c.Scripter == "" {
 				} else if s, ok := scripters[c.Scripter]; ok {
 					options = append(options, connectors.WithScripter(s))
 				} else {
-					log.Error(color.RedString("Could not find scripter=%s. Enabled scripters: %s", c.Service, strings.Join(scripter.GetAvailableScripterNames(), ", ")))
+					log.Error(color.RedString("Could not find scripter=%s. Enabled scripters: %s", c.Scripter, strings.Join(scripter.GetAvailableScripterNames(), ", ")))
 				}
 
 				connector := connectorFn(options...)
 				connectorPrts = append(connectorPrts, connector)
-
 
 				// Is this still wanted? I guess not when moving more towards Lua scripting
 				isServiceUsed[c.Service] = true

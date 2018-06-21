@@ -10,6 +10,7 @@ import (
 	"github.com/op/go-logging"
 	"net"
 	"fmt"
+	"sync"
 )
 
 var (
@@ -30,28 +31,37 @@ func Get(key string) (func(...ConnectorFunc) Connector, bool) {
 	return nil, false
 }
 
-type ConnectorFunc func(Connector) error
-
-func WithConfig(conf toml.Primitive) ConnectorFunc {
-	return func(c Connector) error {
-		err := toml.PrimitiveDecode(conf, c)
-		return err
+func GetAvailableConnectorNames() []string {
+	var out []string
+	for key := range connectors {
+		out = append(out, key)
 	}
+	return out
 }
+
+
+type ConnectorFunc func(Connector) error
 
 type Connector interface {
 	GetName() string
 	GetType() string
+
+	SetMode(string)
 	GetMode() string
 
 	SetContext(ctx context.Context)
 	SetChannel(c pushers.Channel)
 
+	GetContext() context.Context
+	GetChannel() pushers.Channel
+
 	SetService(services.Servicer)
 	SetDirector(director.Director)
 	SetScripter(scripter.Scripter)
 
-	CanHandle([]byte) bool
+	GetService() services.Servicer
+	GetDirector() director.Director
+	GetScripter() scripter.Scripter
 }
 
 type CanHandlerer interface {
@@ -60,28 +70,30 @@ type CanHandlerer interface {
 
 // Handshaker performs handshake on incoming connections if it is implemented
 type Handshaker interface {
-	Handshake(net.Conn) error
+	Handshake(net.Conn) (sync.Map, error)
 }
 
 // ContainerConnector implements connection to the container
 type ContainerConnector interface {
-	DialContainer(net.Conn) error
+	DialContainer(net.Conn, interface{}) error
 }
 
 // ServiceConnector handles the connection in the service
 type ServiceConnector interface {
-	HandleService(net.Conn) error
+	HandleService(net.Conn, interface{}) error
 }
 
 // ScripterConnector handles the connection in the scripter
 type ScripterConnector interface {
-	HandleScripter(net.Conn) error
+	HandleScripter(net.Conn, interface{}) error
 }
 
 func HandleConn(c Connector, conn net.Conn) error {
+	var data interface{}
+
 	h, ok := c.(Handshaker)
 	if ok {
-		err := h.Handshake(conn)
+		data, err := h.Handshake(conn)
 		if err != nil {
 			return err
 		}
@@ -96,21 +108,21 @@ func HandleConn(c Connector, conn net.Conn) error {
 			if !ok {
 				return fmt.Errorf("service mode is not implemented")
 			}
-			err = s.HandleService(conn)
+			err = s.HandleService(conn, data)
 			break
 		case MODE_DIRECTOR:
 			cnt, ok := c.(ContainerConnector)
 			if !ok {
 				return fmt.Errorf("director mode is not implemented")
 			}
-			err = cnt.DialContainer(conn)
+			err = cnt.DialContainer(conn, data)
 			break
 		case MODE_SCRIPTER:
 			scr, ok := c.(ScripterConnector)
 			if !ok {
 				return fmt.Errorf("scripter mode is not implemented")
 			}
-			err = scr.HandleScripter(conn)
+			err = scr.HandleScripter(conn, data)
 			break
 		case MODE_TERMINATE:
 			// With MODE_TERMINATE we return successfully
@@ -125,6 +137,13 @@ func HandleConn(c Connector, conn net.Conn) error {
 	}
 
 	return nil
+}
+
+func WithConfig(p toml.Primitive) ConnectorFunc {
+	return func(c Connector) error {
+		err := toml.PrimitiveDecode(p, c)
+		return err
+	}
 }
 
 func WithContext(ctx context.Context) ConnectorFunc {
