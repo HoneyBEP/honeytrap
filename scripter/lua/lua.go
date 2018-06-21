@@ -41,6 +41,7 @@ import (
 	"strings"
 	"github.com/honeytrap/honeytrap/pushers"
 	"time"
+	"path/filepath"
 )
 
 var log = logging.MustGetLogger("scripter/lua")
@@ -117,7 +118,7 @@ func (l *luaScripter) Init(service string) error {
 	l.canHandleStates[service] = map[string]*lua.LState{}
 
 	for _, f := range fileNames {
-		if f.IsDir() {
+		if f.IsDir() || filepath.Ext(f.Name()) != ".lua" {
 			continue
 		}
 
