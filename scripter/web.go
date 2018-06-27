@@ -31,26 +31,26 @@
 package scripter
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"github.com/honeytrap/honeytrap/utils/files"
 	"io/ioutil"
-	"strings"
 	"os"
-	"encoding/base64"
-	"errors"
+	"strings"
 )
 
 var basepath = "scripts/"
 
 // fileInfo covers the file info for responses
 type fileInfo struct {
-	Path string `json:"path"`
+	Path    string `json:"path"`
 	Content string `json:"content"`
 }
 
 // response struct is used for JSON responses
 type response struct {
-	Type string `json:"type"`
+	Type string      `json:"type"`
 	Data interface{} `json:"data"`
 }
 
@@ -75,7 +75,10 @@ func HandleRequests(scripters map[string]Scripter, message []byte) ([]byte, erro
 
 // handleScriptReload handles the reload script web request
 func handleScriptReload(scripters map[string]Scripter) ([]byte, error) {
-	ReloadAllScripters(scripters)
+	log.Infof("Reloading all scripts")
+	if err := ReloadAllScripters(scripters); err != nil {
+		return nil, err
+	}
 
 	return nil, nil
 }
@@ -149,6 +152,6 @@ func readFiles(dir string) ([]fileInfo, error) {
 
 // generateResponse generates a JSON response for web requests
 func generateResponse(responseType string, data interface{}) ([]byte, error) {
-	response := response{ Type: responseType, Data: data }
+	response := response{Type: responseType, Data: data}
 	return json.Marshal(response)
 }
