@@ -33,15 +33,15 @@ package lua
 import (
 	"fmt"
 	"github.com/honeytrap/honeytrap/abtester"
+	"github.com/honeytrap/honeytrap/pushers"
 	"github.com/honeytrap/honeytrap/scripter"
 	"github.com/op/go-logging"
 	"github.com/yuin/gopher-lua"
 	"io/ioutil"
 	"net"
-	"strings"
-	"github.com/honeytrap/honeytrap/pushers"
-	"time"
 	"path/filepath"
+	"strings"
+	"time"
 )
 
 var log = logging.MustGetLogger("scripter/lua")
@@ -73,7 +73,7 @@ func New(name string, options ...scripter.ScripterFunc) (scripter.Scripter, erro
 type luaScripter struct {
 	name string
 
-	Folder string `toml:"folder"`
+	Folder       string        `toml:"folder"`
 	CleanupTimer time.Duration `toml:"cleanupTimer"`
 
 	//Source of the states, initialized per connection: directory/scriptname
@@ -143,8 +143,8 @@ func (l *luaScripter) GetConnection(service string, conn net.Conn) scripter.Conn
 	sConn, ok := l.connections[ip]
 	if !ok {
 		sConn = &luaConn{
-			conn: conn,
-			scripts: map[string]map[string]*lua.LState{},
+			conn:     conn,
+			scripts:  map[string]map[string]*lua.LState{},
 			abTester: l.ab,
 		}
 		l.connections[ip] = sConn
@@ -192,12 +192,12 @@ func (l *luaScripter) CleanConnections() {
 	count := 0
 	total := len(l.connections)
 	for key, connection := range l.connections {
-		if time.Since(connection.GetLastUsed()) > l.CleanupTimer * time.Minute { //The connection hasn't been used for more than 60 minutes
+		if time.Since(connection.GetLastUsed()) > l.CleanupTimer*time.Minute { //The connection hasn't been used for more than 60 minutes
 			count++
 			delete(l.connections, key)
 		}
 	}
-	log.Debugf("Cleaning connections, %d of %d connections were cleaned, %d remaining", count, total, total-count)
+	log.Infof("Cleaning connections, %d of %d connections were cleaned, %d remaining", count, total, total-count)
 }
 
 // getConnIP retrieves the IP from a connection's remote address

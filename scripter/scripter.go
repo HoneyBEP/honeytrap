@@ -32,12 +32,12 @@ package scripter
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/BurntSushi/toml"
 	"github.com/honeytrap/honeytrap/abtester"
 	"github.com/honeytrap/honeytrap/pushers"
 	"github.com/op/go-logging"
 	"net"
-	"fmt"
 	"time"
 )
 
@@ -149,7 +149,6 @@ func WithConfig(c toml.Primitive) ScripterFunc {
 func ReloadScripts(s Scripter) error {
 	for service := range s.GetScripts() {
 		if err := s.Init(service); err != nil {
-			log.Errorf("error init service: %s", err)
 			return fmt.Errorf("error init service: %s", err)
 		} else {
 			log.Infof("successfully updated service: %s", service)
@@ -178,7 +177,7 @@ func SetConnectionChecker(scripters map[string]Scripter) {
 	go func() {
 		for {
 			select {
-			case <- ticker.C:
+			case <-ticker.C:
 				for _, scripter := range scripters {
 					scripter.CleanConnections()
 				}
